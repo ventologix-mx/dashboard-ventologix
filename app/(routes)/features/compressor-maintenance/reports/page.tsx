@@ -84,15 +84,17 @@ const Reports = () => {
       const result = await response.json();
       const ordenes: OrdenServicio[] = result.data || [];
 
-      // Only show completed reports
-      const completedOrdenes = ordenes.filter(
-        (orden) => orden.estado === "terminado",
+      // Clients (rol 3 & 4) see terminado + por_firmar; admins/techs see only terminado
+      const visibleOrdenes = ordenes.filter((orden) =>
+        (rol === 3 || rol === 4)
+          ? orden.estado === "terminado" || orden.estado === "por_firmar"
+          : orden.estado === "terminado",
       );
 
       // Filter by role - roles 3 and 4 can only see their own client's reports
-      let filteredOrdenes = completedOrdenes;
+      let filteredOrdenes = visibleOrdenes;
       if ((rol === 3 || rol === 4) && numeroCliente) {
-        filteredOrdenes = completedOrdenes.filter(
+        filteredOrdenes = visibleOrdenes.filter(
           (orden) => orden.numero_cliente === numeroCliente,
         );
       }
@@ -239,10 +241,14 @@ const Reports = () => {
                 {flatReports.map((orden) => (
                   <div
                     key={orden.folio}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                    className={`flex items-center justify-between p-4 rounded-lg transition-colors border ${
+                      orden.estado === "por_firmar"
+                        ? "bg-yellow-50 border-yellow-300 hover:bg-yellow-100"
+                        : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                    }`}
                   >
                     <div className="flex-1">
-                      <div className="flex items-center space-x-6 mb-2">
+                      <div className="flex items-center space-x-4 mb-2 flex-wrap gap-y-1">
                         <div className="flex items-center space-x-2 text-gray-700">
                           <Wrench size={18} />
                           <span className="font-semibold">
@@ -257,6 +263,11 @@ const Reports = () => {
                         <span className="text-sm text-blue-600 font-medium">
                           Folio: {orden.folio}
                         </span>
+                        {orden.estado === "por_firmar" && (
+                          <span className="px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs font-semibold rounded-full">
+                            Pendiente de firma
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center space-x-6 text-sm text-gray-600">
                         <div className="flex items-center space-x-2">
@@ -265,9 +276,7 @@ const Reports = () => {
                         </div>
                         <div className="flex items-center space-x-2">
                           <FileText size={16} />
-                          <span>
-                            {orden.tipo_visita || "Mantenimiento"}
-                          </span>
+                          <span>{orden.tipo_visita || "Mantenimiento"}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <User size={16} />
@@ -276,20 +285,31 @@ const Reports = () => {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleDownloadPdf(orden.folio)}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center space-x-2"
-                      >
-                        <Download size={16} />
-                        <span>PDF</span>
-                      </button>
-                      <button
-                        onClick={() => handleViewReport(orden)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-2"
-                      >
-                        <Eye size={16} />
-                        <span>Ver Reporte</span>
-                      </button>
+                      {orden.estado === "por_firmar" ? (
+                        <button
+                          onClick={() => handleViewReport(orden)}
+                          className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium flex items-center space-x-2"
+                        >
+                          <span>✍️ Firmar Reporte</span>
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleDownloadPdf(orden.folio)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center space-x-2"
+                          >
+                            <Download size={16} />
+                            <span>PDF</span>
+                          </button>
+                          <button
+                            onClick={() => handleViewReport(orden)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-2"
+                          >
+                            <Eye size={16} />
+                            <span>Ver Reporte</span>
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
