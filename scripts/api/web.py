@@ -187,20 +187,23 @@ def get_usuario_by_email(email: str):
         if rol in (3, 4):  # Cliente y gerente cliente
             cursor.execute("""
                 SELECT c.id AS id_compresor, c.linea, c.proyecto AS id_cliente,
-                       c.Alias AS alias, c.tipo AS tipo, c.numero_serie AS numero_serie
-                FROM compresores c 
-                JOIN clientes c2 ON c2.id_cliente = c.id_cliente 
-                WHERE c2.numero_cliente = %s
+                       c.Alias AS alias, c.tipo AS tipo, c.numero_serie AS numero_serie,
+                       c.activo
+                FROM compresores c
+                JOIN clientes c2 ON c2.id_cliente = c.id_cliente
+                WHERE c2.numero_cliente = %s AND c.activo = 1
             """, (numeroCliente,))
             compresores = cursor.fetchall()
 
         elif rol in (0, 1, 2):  # Admin, VT, VAST
             cursor.execute("""
                 SELECT c.id AS id_compresor, c.linea, c.proyecto AS id_cliente,
-                       c.Alias AS alias, c.numero_serie AS numero_serie, 
-                       c.tipo AS tipo, c2.nombre_cliente, c2.numero_cliente
-                FROM compresores c 
+                       c.Alias AS alias, c.numero_serie AS numero_serie,
+                       c.tipo AS tipo, c2.nombre_cliente, c2.numero_cliente,
+                       c.activo
+                FROM compresores c
                 JOIN clientes c2 ON c.id_cliente = c2.id_cliente
+                WHERE c.activo = 1
             """)
             compresores = cursor.fetchall()
 

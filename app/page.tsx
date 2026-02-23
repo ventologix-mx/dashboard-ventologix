@@ -72,7 +72,7 @@ export default function Page() {
             name: data.name,
             modulos: data.modulos || {},
             compresores: (data.compresores || [])
-            .filter((c: Compressor) => c.activo === 1)
+            .filter((c: Compressor) => c.activo == null || c.activo == 1)
             .map((c: Compressor) => {
               return {
                 ...c,
