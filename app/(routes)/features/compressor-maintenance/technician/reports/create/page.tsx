@@ -4068,15 +4068,15 @@ function FillReport() {
                     onClick={async () => {
                       if (!formData.folio) return;
                       const confirmed = confirm(
-                        "¿Está seguro de terminar el reporte? Se marcará como terminado y no se podrá editar."
+                        "¿Está seguro de enviar el reporte a firma? Se guardará y se redirigirá a la vista de firma del técnico."
                       );
                       if (!confirmed) return;
 
                       setIsSaving(true);
                       try {
-                        console.log("🏁 Iniciando proceso de terminar reporte para folio:", formData.folio);
+                        console.log("🏁 Iniciando proceso de enviar a firma para folio:", formData.folio);
 
-                        // First, save post-maintenance data (if not already saved)
+                        // Save post-maintenance data
                         console.log("💾 Guardando datos de post-mantenimiento...");
                         const postResult = await savePostMaintenanceData();
                         console.log("📥 Resultado post-mantenimiento:", postResult);
@@ -4088,33 +4088,25 @@ function FillReport() {
                           return;
                         }
 
-                        // Then, mark the report as terminado
-                        console.log("🏁 Marcando reporte como terminado...");
-                        const finishResponse = await fetch(
-                          `${URL_API}/reporte_mtto/finalizar-reporte/${formData.folio}`,
-                          {
-                            method: "POST",
-                            headers: {
-                              "Content-Type": "application/json",
-                            },
-                          }
+                        // Update order status to por_firmar
+                        console.log("📋 Actualizando estado a por_firmar...");
+                        const statusResponse = await fetch(
+                          `${URL_API}/ordenes/${formData.folio}/estado?estado=por_firmar`,
+                          { method: "PATCH" }
                         );
 
-                        const finishResult = await finishResponse.json();
-                        console.log("📥 Resultado finalizar reporte:", finishResult);
-
-                        if (finishResult?.success) {
-                          alert("✅ Reporte terminado exitosamente!\n\nFolio: " + formData.folio + "\nEl reporte ha sido marcado como terminado.");
-                          router.push("/features/compressor-maintenance/technician/reports");
+                        if (statusResponse.ok) {
+                          router.push(`/features/compressor-maintenance/reports/view?folio=${formData.folio}`);
                         } else {
-                          const errorMsg = finishResult?.error || "Error desconocido al finalizar";
-                          console.error("❌ Error al finalizar:", errorMsg);
-                          alert("❌ Error al terminar el reporte: " + errorMsg + "\n\nLos datos están guardados con folio: " + formData.folio + "\n\nPuede intentar nuevamente o contactar soporte.");
+                          const statusResult = await statusResponse.json();
+                          const errorMsg = statusResult?.error || statusResult?.detail || "Error desconocido";
+                          console.error("❌ Error al actualizar estado:", errorMsg);
+                          alert("❌ Error al actualizar el estado: " + errorMsg + "\n\nLos datos están guardados con folio: " + formData.folio);
                         }
                       } catch (err) {
                         const errorMsg = err instanceof Error ? err.message : String(err);
-                        console.error("❌ Excepción al terminar reporte:", errorMsg, err);
-                        alert("❌ Error crítico al terminar el reporte:\n" + errorMsg + "\n\nFolio: " + formData.folio + "\n\nEl reporte está guardado como borrador.");
+                        console.error("❌ Excepción al enviar a firma:", errorMsg, err);
+                        alert("❌ Error crítico:\n" + errorMsg + "\n\nFolio: " + formData.folio + "\n\nEl reporte está guardado como borrador.");
                       } finally {
                         setIsSaving(false);
                       }
@@ -4122,7 +4114,7 @@ function FillReport() {
                     disabled={isSaving}
                     className="px-6 py-3 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isSaving ? "Guardando..." : "✅ Terminar Reporte"}
+                    {isSaving ? "Guardando..." : "✍️ Enviar a Firma"}
                   </button>
                 )}
               </div>

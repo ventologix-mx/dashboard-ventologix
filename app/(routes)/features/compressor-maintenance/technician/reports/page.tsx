@@ -919,14 +919,18 @@ const TypeReportes = () => {
                                       className={`px-2 py-1 text-sm font-medium rounded ${
                                         orden.estado === "no_iniciado"
                                           ? "bg-blue-50 text-blue-700"
-                                          : orden.estado === "en_proceso"
+                                          : orden.estado === "en_proceso" || orden.estado === "en_progreso"
                                             ? "bg-blue-100 text-blue-800"
-                                            : orden.estado === "completado"
-                                              ? "bg-green-100 text-green-700"
-                                              : "bg-blue-50 text-blue-700"
+                                            : orden.estado === "por_firmar"
+                                              ? "bg-yellow-100 text-yellow-800"
+                                              : orden.estado === "completado"
+                                                ? "bg-green-100 text-green-700"
+                                                : orden.estado === "terminado"
+                                                  ? "bg-gray-100 text-gray-600"
+                                                  : "bg-blue-50 text-blue-700"
                                       }`}
                                     >
-                                      {orden.estado.replace("_", " ")}
+                                      {orden.estado.replace(/_/g, " ")}
                                     </span>
                                     <span
                                       className={`px-2 py-1 text-sm font-medium rounded ${
@@ -998,13 +1002,23 @@ const TypeReportes = () => {
                                     </p>
                                   </div>
                                 </div>
-                                <button
-                                  onClick={() => handleStartReport(orden)}
-                                  className="w-full px-4 py-3 bg-blue-800 text-white text-base font-medium rounded-lg hover:bg-blue-900 transition-colors"
-                                  title="Crear Reporte"
-                                >
-                                  Empezar Reporte
-                                </button>
+                                {orden.estado === "por_firmar" ? (
+                                  <button
+                                    onClick={() => router.push(`/features/compressor-maintenance/reports/view?folio=${orden.folio}`)}
+                                    className="w-full px-4 py-3 bg-yellow-600 text-white text-base font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                                    title="Firmar Reporte"
+                                  >
+                                    ✍️ Firmar Reporte
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleStartReport(orden)}
+                                    className="w-full px-4 py-3 bg-blue-800 text-white text-base font-medium rounded-lg hover:bg-blue-900 transition-colors"
+                                    title="Crear Reporte"
+                                  >
+                                    Empezar Reporte
+                                  </button>
+                                )}
                               </div>
                             ))}
                           </div>

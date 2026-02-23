@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { URL_API } from "@/lib/global";
 import Image from "next/image";
 import { CheckCircle, XCircle, FileText, X } from "lucide-react";
+import SignatureCanvas from "react-signature-canvas";
 
 interface MaintenanceItem {
   nombre: string;
@@ -183,6 +184,10 @@ function ViewReportContent() {
     isOpen: false,
     imageSrc: "",
   });
+  const [isSavingSignature, setIsSavingSignature] = useState(false);
+  const [nombrePersonaCargo, setNombrePersonaCargo] = useState("");
+  const clientSignatureRef = useRef<SignatureCanvas>(null);
+  const techSignatureRef = useRef<SignatureCanvas>(null);
 
   useEffect(() => {
     const folio = searchParams.get("folio");
@@ -271,6 +276,67 @@ function ViewReportContent() {
     if (folio) {
       const pdfUrl = `${URL_API}/reporte_mtto/descargar-pdf-react/${folio}`;
       window.open(pdfUrl, "_blank");
+    }
+  };
+
+  const handleSaveSignatureAndFinish = async () => {
+    const folio = searchParams.get("folio");
+    if (!folio) return;
+
+    if (!techSignatureRef.current || techSignatureRef.current.isEmpty()) {
+      alert("Por favor agregue la firma del técnico antes de guardar.");
+      return;
+    }
+    if (!clientSignatureRef.current || clientSignatureRef.current.isEmpty()) {
+      alert("Por favor agregue la firma del cliente/persona a cargo antes de guardar.");
+      return;
+    }
+
+    setIsSavingSignature(true);
+    try {
+      const techCanvas = techSignatureRef.current.getCanvas();
+      const techSignatureData = techCanvas.toDataURL("image/png");
+
+      const clientCanvas = clientSignatureRef.current.getCanvas();
+      const clientSignatureData = clientCanvas.toDataURL("image/png");
+
+      // Save both signatures to post-maintenance data
+      const saveSignResponse = await fetch(`${URL_API}/reporte_mtto/post-mtto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          folio,
+          firma_tecnico_ventologix: techSignatureData,
+          firma_persona_cargo: clientSignatureData,
+          nombre_persona_cargo: nombrePersonaCargo || undefined,
+        }),
+      });
+
+      if (!saveSignResponse.ok) {
+        const signResult = await saveSignResponse.json();
+        alert("❌ Error al guardar las firmas: " + (signResult?.error || signResult?.detail || "Error desconocido"));
+        return;
+      }
+
+      // Finalize the report (sets status to terminado)
+      const finalizeResponse = await fetch(
+        `${URL_API}/reporte_mtto/finalizar-reporte/${folio}`,
+        { method: "POST", headers: { "Content-Type": "application/json" } }
+      );
+      const finalizeResult = await finalizeResponse.json();
+
+      if (finalizeResult?.success) {
+        alert("✅ Reporte firmado y terminado exitosamente!");
+        loadAllReportData(folio);
+      } else {
+        const errorMsg = finalizeResult?.error || "Error desconocido al finalizar";
+        alert("❌ Error al finalizar el reporte: " + errorMsg);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      alert("❌ Error: " + errorMsg);
+    } finally {
+      setIsSavingSignature(false);
     }
   };
 
@@ -1280,6 +1346,90 @@ function ViewReportContent() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Signature Section - only shown when por_firmar */}
+        {orderData?.estado === "por_firmar" && (
+          <div className="no-print bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 className="text-white bg-blue-800 px-4 py-2 rounded font-bold mb-4">
+              FIRMAS — PENDIENTE DE FIRMA
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Para finalizar el reporte se requieren las firmas del técnico y del cliente/persona a cargo.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Client / Persona a Cargo */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-2">Firma del Cliente / Persona a Cargo</h3>
+                <div className="mb-2">
+                  <label className="block text-sm text-gray-600 mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    value={nombrePersonaCargo}
+                    onChange={(e) => setNombrePersonaCargo(e.target.value)}
+                    placeholder="Nombre completo..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+                  />
+                </div>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 overflow-hidden">
+                  <SignatureCanvas
+                    ref={clientSignatureRef}
+                    penColor="black"
+                    canvasProps={{
+                      width: 500,
+                      height: 180,
+                      className: "w-full",
+                      style: { touchAction: "none" },
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => clientSignatureRef.current?.clear()}
+                  className="mt-2 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+                >
+                  Limpiar
+                </button>
+              </div>
+
+              {/* Technician */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-2">Firma del Técnico Ventologix</h3>
+                <div className="mb-2 h-[29px]" />
+                <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 overflow-hidden">
+                  <SignatureCanvas
+                    ref={techSignatureRef}
+                    penColor="black"
+                    canvasProps={{
+                      width: 500,
+                      height: 180,
+                      className: "w-full",
+                      style: { touchAction: "none" },
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => techSignatureRef.current?.clear()}
+                  className="mt-2 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveSignatureAndFinish}
+                disabled={isSavingSignature}
+                className="px-8 py-3 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSavingSignature ? "Guardando..." : "✅ Guardar Firmas y Terminar Reporte"}
+              </button>
+            </div>
           </div>
         )}
 
