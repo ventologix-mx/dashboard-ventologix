@@ -7,6 +7,7 @@ import paho.mqtt.client as mqtt
 import json
 import time
 import logging
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
 import os
@@ -19,7 +20,8 @@ load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    datefmt='%Y-%m-%d %H:%M:%S',
+    stream=sys.stdout
 )
 
 # Configuración de la base de datos

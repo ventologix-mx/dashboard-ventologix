@@ -3,6 +3,7 @@ import mysql.connector
 import json
 from datetime import datetime
 import logging
+import sys
 from dotenv import load_dotenv
 import os
 import time
@@ -23,7 +24,7 @@ db_config = {
 }
 
 # Configurar logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", stream=sys.stdout)
 
 # Conexión persistente a base
 def conectar_db():
