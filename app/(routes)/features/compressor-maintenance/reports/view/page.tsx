@@ -187,7 +187,6 @@ function ViewReportContent() {
   const [isSavingSignature, setIsSavingSignature] = useState(false);
   const [nombrePersonaCargo, setNombrePersonaCargo] = useState("");
   const clientSignatureRef = useRef<SignatureCanvas>(null);
-  const techSignatureRef = useRef<SignatureCanvas>(null);
 
   useEffect(() => {
     const folio = searchParams.get("folio");
@@ -283,10 +282,6 @@ function ViewReportContent() {
     const folio = searchParams.get("folio");
     if (!folio) return;
 
-    if (!techSignatureRef.current || techSignatureRef.current.isEmpty()) {
-      alert("Por favor agregue la firma del técnico antes de guardar.");
-      return;
-    }
     if (!clientSignatureRef.current || clientSignatureRef.current.isEmpty()) {
       alert("Por favor agregue la firma del cliente/persona a cargo antes de guardar.");
       return;
@@ -294,19 +289,16 @@ function ViewReportContent() {
 
     setIsSavingSignature(true);
     try {
-      const techCanvas = techSignatureRef.current.getCanvas();
-      const techSignatureData = techCanvas.toDataURL("image/png");
-
       const clientCanvas = clientSignatureRef.current.getCanvas();
       const clientSignatureData = clientCanvas.toDataURL("image/png");
 
-      // Save both signatures to post-maintenance data
+      // Save client signature + static technician signature
       const saveSignResponse = await fetch(`${URL_API}/reporte_mtto/post-mtto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           folio,
-          firma_tecnico_ventologix: techSignatureData,
+          firma_tecnico_ventologix: "/firma_ivan.png",
           firma_persona_cargo: clientSignatureData,
           nombre_persona_cargo: nombrePersonaCargo || undefined,
         }),
@@ -314,7 +306,7 @@ function ViewReportContent() {
 
       if (!saveSignResponse.ok) {
         const signResult = await saveSignResponse.json();
-        alert("❌ Error al guardar las firmas: " + (signResult?.error || signResult?.detail || "Error desconocido"));
+        alert("❌ Error al guardar la firma: " + (signResult?.error || signResult?.detail || "Error desconocido"));
         return;
       }
 
@@ -1353,17 +1345,17 @@ function ViewReportContent() {
         {orderData?.estado === "por_firmar" && (
           <div className="no-print bg-white rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-white bg-blue-800 px-4 py-2 rounded font-bold mb-4">
-              FIRMAS — PENDIENTE DE FIRMA
+              FIRMA DEL CLIENTE — PENDIENTE DE FIRMA
             </h2>
             <p className="text-gray-600 mb-6">
-              Para finalizar el reporte se requieren las firmas del técnico y del cliente/persona a cargo.
+              Para finalizar el reporte se requiere la firma del cliente o persona a cargo.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Client / Persona a Cargo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              {/* Client signature */}
               <div>
                 <h3 className="font-semibold text-gray-800 mb-2">Firma del Cliente / Persona a Cargo</h3>
-                <div className="mb-2">
+                <div className="mb-3">
                   <label className="block text-sm text-gray-600 mb-1">Nombre</label>
                   <input
                     type="text"
@@ -1394,29 +1386,18 @@ function ViewReportContent() {
                 </button>
               </div>
 
-              {/* Technician */}
+              {/* Static technician signature preview */}
               <div>
-                <h3 className="font-semibold text-gray-800 mb-2">Firma del Técnico Ventologix</h3>
-                <div className="mb-2 h-[29px]" />
-                <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 overflow-hidden">
-                  <SignatureCanvas
-                    ref={techSignatureRef}
-                    penColor="black"
-                    canvasProps={{
-                      width: 500,
-                      height: 180,
-                      className: "w-full",
-                      style: { touchAction: "none" },
-                    }}
+                <h3 className="font-semibold text-gray-800 mb-2">Técnico Ventologix</h3>
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 flex items-center justify-center" style={{ height: 220 }}>
+                  <Image
+                    src="/firma_ivan.png"
+                    alt="Firma del técnico Ventologix"
+                    width={200}
+                    height={100}
+                    className="object-contain"
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => techSignatureRef.current?.clear()}
-                  className="mt-2 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
-                >
-                  Limpiar
-                </button>
               </div>
             </div>
 
@@ -1427,7 +1408,7 @@ function ViewReportContent() {
                 disabled={isSavingSignature}
                 className="px-8 py-3 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSavingSignature ? "Guardando..." : "✅ Guardar Firmas y Terminar Reporte"}
+                {isSavingSignature ? "Guardando..." : "✅ Guardar Firma y Terminar Reporte"}
               </button>
             </div>
           </div>
