@@ -46,7 +46,7 @@ TOKEN_JSON = os.path.join(PROJECT_ROOT, "lib", "token.json")
 TOKEN_PICKLE = os.path.join(PROJECT_ROOT, "lib", "token.pickle")
 
 ADMIN_CORREOS = [
-    "hector.tovar@ventologix.com",
+    # "hector.tovar@ventologix.com",
     "andres.mirazo@ventologix.com",
 ]
 
