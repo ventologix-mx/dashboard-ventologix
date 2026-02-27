@@ -12,8 +12,7 @@ from datetime import datetime
 import json
 
 from .clases import Modulos, PreMantenimientoRequest, PostMantenimientoRequest
-from .drive_utils import upload_maintenance_photos, get_drive_service, ROOT_FOLDER_ID, get_or_create_folder
-from .maintenance_web import get_drive_folder_images
+from .drive_utils import upload_maintenance_photos, list_gcs_photos_by_folio, BUCKET_NAME
 from .pdf_playwright import generate_pdf_from_react
 
 load_dotenv()
@@ -252,7 +251,7 @@ async def upload_photos(
             print(f"✅ [DEBUG] Upload succeeded!")
             return {
                 "success": True,
-                "message": f"Successfully uploaded {len(files)} photo(s) to Google Drive",
+                "message": f"Successfully uploaded {len(files)} photo(s) to Google Cloud Storage",
                 "uploaded_files": result["uploaded_files"],
                 "folder_structure": result["folder_structure"]
             }
@@ -680,69 +679,17 @@ def get_full_report(folio: str = Path(..., description="Folio del reporte")):
         if not orden:
             return {"success": False, "error": "Folio not found"}
 
-        # Get photos from Google Drive organized by category
+        # Get photos from Google Cloud Storage organized by category
         fotos_by_category = {}
         fotos_drive_flat = []
         try:
-            drive_service = get_drive_service()
             client_name = (orden.get("nombre_cliente") or "").strip().replace('/', '-')
-            clean_folio = folio.strip().replace('/', '-')
-
             if client_name:
-                # Find client folder
-                query = f"'{ROOT_FOLDER_ID}' in parents and name='{client_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-                results = drive_service.files().list(q=query, fields="files(id)", spaces='drive', pageSize=1).execute()
-                client_folders = results.get('files', [])
-
-                if client_folders:
-                    client_folder_id = client_folders[0]['id']
-                    # Find folio folder
-                    query2 = f"'{client_folder_id}' in parents and name='{clean_folio}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-                    results2 = drive_service.files().list(q=query2, fields="files(id)", spaces='drive', pageSize=1).execute()
-                    folio_folders = results2.get('files', [])
-
-                    if folio_folders:
-                        folio_folder_id = folio_folders[0]['id']
-
-                        # Get photos from root folio folder (uncategorized)
-                        folio_folder_url = f"https://drive.google.com/drive/folders/{folio_folder_id}"
-                        root_images = get_drive_folder_images(folio_folder_url)
-                        if root_images:
-                            root_urls = [foto.get('url', '') for foto in root_images if foto.get('url')]
-                            if root_urls:
-                                fotos_by_category["OTROS"] = root_urls
-                                fotos_drive_flat.extend(root_urls)
-
-                        # Navigate: Folio -> PHOTOS -> Category folders
-                        # First find the PHOTOS subfolder
-                        query_photos = f"'{folio_folder_id}' in parents and name='PHOTOS' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-                        results_photos = drive_service.files().list(q=query_photos, fields="files(id)", spaces='drive', pageSize=1).execute()
-                        photos_folders = results_photos.get('files', [])
-
-                        # Determine the parent folder for category subfolders
-                        # If PHOTOS folder exists, use it; otherwise fall back to folio folder directly
-                        category_parent_id = photos_folders[0]['id'] if photos_folders else folio_folder_id
-
-                        # Get category subfolders and organize photos by category
-                        query3 = f"'{category_parent_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
-                        results3 = drive_service.files().list(q=query3, fields="files(id, name)", spaces='drive').execute()
-                        subfolders = results3.get('files', [])
-
-                        for subfolder in subfolders:
-                            subfolder_name = subfolder['name']
-                            subfolder_url = f"https://drive.google.com/drive/folders/{subfolder['id']}"
-                            subfolder_images = get_drive_folder_images(subfolder_url)
-                            if subfolder_images:
-                                subfolder_urls = [foto.get('url', '') for foto in subfolder_images if foto.get('url')]
-                                if subfolder_urls:
-                                    if subfolder_name in fotos_by_category:
-                                        fotos_by_category[subfolder_name].extend(subfolder_urls)
-                                    else:
-                                        fotos_by_category[subfolder_name] = subfolder_urls
-                                    fotos_drive_flat.extend(subfolder_urls)
+                gcs_result = list_gcs_photos_by_folio(client_name, folio)
+                fotos_by_category = gcs_result["by_category"]
+                fotos_drive_flat = gcs_result["flat"]
         except Exception as e:
-            print(f"Warning: Could not fetch photos from Drive: {str(e)}")
-            # Continue without photos if Drive fetch fails
+            print(f"Warning: Could not fetch photos from GCS: {str(e)}")
 
         return {
             "success": True,
@@ -1084,37 +1031,31 @@ async def download_report_pdf_old(folio: str = Path(..., description="Folio del 
 
             elements.append(Spacer(1, 12))
 
-        # ===== GOOGLE DRIVE PHOTOS LINK =====
-        drive_folder_url = None
+        # ===== GOOGLE CLOUD STORAGE PHOTOS LINK =====
+        gcs_photos_url = None
         try:
-            drive_service = get_drive_service()
+            from datetime import datetime as _dt
             client_name = (orden.get("nombre_cliente") or "").strip().replace('/', '-')
             clean_folio = folio.strip().replace('/', '-')
             if client_name:
-                # Find client folder
-                query = f"'{ROOT_FOLDER_ID}' in parents and name='{client_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-                results = drive_service.files().list(q=query, fields="files(id)", spaces='drive', pageSize=1).execute()
-                client_folders = results.get('files', [])
-                if client_folders:
-                    # Find folio folder inside client folder
-                    query2 = f"'{client_folders[0]['id']}' in parents and name='{clean_folio}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-                    results2 = drive_service.files().list(q=query2, fields="files(id)", spaces='drive', pageSize=1).execute()
-                    folio_folders = results2.get('files', [])
-                    if folio_folders:
-                        drive_folder_url = f"https://drive.google.com/drive/folders/{folio_folders[0]['id']}"
+                now = _dt.now()
+                gcs_photos_url = (
+                    f"https://storage.googleapis.com/{BUCKET_NAME}"
+                    f"/mantenimiento/{now.strftime('%Y')}/{now.strftime('%m')}"
+                    f"/{client_name}/{clean_folio}"
+                )
         except Exception:
-            # If Drive is not available, fall back to root folder
-            drive_folder_url = f"https://drive.google.com/drive/folders/{ROOT_FOLDER_ID}"
+            pass
 
-        if drive_folder_url:
+        if gcs_photos_url:
             elements.append(Spacer(1, 12))
             elements.append(Paragraph("EVIDENCIAS FOTOGRÁFICAS", styles["SectionHeader"]))
             elements.append(Spacer(1, 4))
             elements.append(Paragraph(
-                f'Las fotografías del servicio se encuentran disponibles en Google Drive:<br/>'
-                f'<a href="{drive_folder_url}" color="blue"><u>{drive_folder_url}</u></a>',
+                f'Las fotografías del servicio se encuentran disponibles en Google Cloud Storage:<br/>'
+                f'<a href="{gcs_photos_url}" color="blue"><u>{gcs_photos_url}</u></a>',
                 ParagraphStyle(
-                    name="DriveLink", parent=styles["Normal"],
+                    name="GCSLink", parent=styles["Normal"],
                     fontSize=9, leading=14, alignment=TA_CENTER,
                     spaceAfter=8
                 )
