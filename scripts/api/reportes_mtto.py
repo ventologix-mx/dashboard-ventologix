@@ -377,8 +377,9 @@ def save_post_mantenimiento(data: PostMantenimientoRequest):
 @reportes_mtto.post("/finalizar-reporte/{folio}")
 def finalizar_reporte(folio: str = Path(..., description="Folio del reporte")):
     """
-    Mark a report as 'terminado' (finished).
-    This should only be called when the user explicitly clicks "Terminar Reporte".
+    Mark a report as 'terminado' (finished) and resets the semaforo
+    (horas_acumuladas = 0) for all maintenance items performed.
+    Also auto-registers the compressor in mantenimientos if not found.
     """
     conn = None
     try:
@@ -388,7 +389,7 @@ def finalizar_reporte(folio: str = Path(..., description="Folio del reporte")):
             database=DB_DATABASE,
             host=DB_HOST
         )
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
 
         # Update orden_servicio status to 'terminado'
         cursor.execute(
@@ -411,6 +412,113 @@ def finalizar_reporte(folio: str = Path(..., description="Folio del reporte")):
             "UPDATE reportes SET estado = 'enviado' WHERE folio = %s",
             (folio,)
         )
+
+        # ── Semáforo: reset y alta automática ──────────────────────────────
+        # 1. Resolve id_compresor and tipo_compresor from ordenes_servicio
+        cursor.execute(
+            """SELECT c.id AS id_compresor, o.tipo
+               FROM ordenes_servicio o
+               JOIN compresores c ON o.numero_serie = c.numero_serie
+               WHERE o.folio = %s
+               LIMIT 1""",
+            (folio,)
+        )
+        comp_row = cursor.fetchone()
+
+        if comp_row:
+            id_compresor = comp_row["id_compresor"]
+            tipo_compresor = comp_row["tipo"]  # 'tornillo' or 'piston'
+            today = datetime.now().date()
+
+            # Map report DB columns → nombre_tipo in mantenimientos_tipo
+            column_to_tipo = {
+                "cambio_aceite":                  "Cambio de aceite",
+                "cambio_filtro_aceite":            "Cambio de filtro de aceite",
+                "cambio_filtro_aire":              "Cambio de filtro de aire",
+                "cambio_separador_aceite":         "Cambio de separador de aceite",
+                "revision_valvula_admision":       "Revisión de válvula de admisión",
+                "revision_valvula_descarga":       "Revisión de válvula de descarga",
+                "limpieza_radiador":               "Limpieza de radiador",
+                "revision_bandas_correas":         "Revisión de bandas/correas",
+                "revision_fugas_aire":             "Revisión de fugas de aire",
+                "revision_fugas_aceite":           "Revisión de fugas de aceite",
+                "revision_conexiones_electricas":  "Revisión de conexiones eléctricas",
+                "revision_presostato":             "Revisión de presostato",
+                "revision_manometros":             "Revisión de manómetros",
+                "lubricacion_general":             "Lubricación general",
+                "limpieza_general":                "Limpieza general del equipo",
+            }
+
+            # 2. Get ALL maintenance types defined for this compressor type
+            cursor.execute(
+                "SELECT * FROM mantenimientos_tipo WHERE tipo_compresor = %s",
+                (tipo_compresor,)
+            )
+            all_tipos = cursor.fetchall()
+
+            # 3. Get which id_mantenimiento records already exist for this compressor
+            cursor.execute(
+                "SELECT id_mantenimiento FROM mantenimientos WHERE id_compresor = %s",
+                (id_compresor,)
+            )
+            existing_ids = {r["id_mantenimiento"] for r in cursor.fetchall()}
+
+            # 4. Get the maintenance items actually performed in this report
+            cursor.execute(
+                "SELECT * FROM reportes_mantenimiento WHERE folio = %s LIMIT 1",
+                (folio,)
+            )
+            mtto_items = cursor.fetchone() or {}
+
+            # Build set of nombre_tipo that were performed (column value == "Sí")
+            done_nombres = {
+                tipo_nombre
+                for col, tipo_nombre in column_to_tipo.items()
+                if mtto_items.get(col) == "Sí"
+            }
+
+            # 5. Process every type defined for this compressor type
+            for tipo in all_tipos:
+                id_m = tipo["id_mantenimiento"]
+                nombre = tipo.get("nombre_tipo", "")
+                # frecuencia: try common column names, default 2000
+                freq = (
+                    tipo.get("frecuencia_horas")
+                    or tipo.get("frecuencia")
+                    or 2000
+                )
+                is_done = nombre in done_nombres
+
+                if id_m not in existing_ids:
+                    # Compressor not registered for this type → INSERT
+                    cursor.execute(
+                        """INSERT INTO mantenimientos
+                           (id_compresor, id_mantenimiento, frecuencia_horas,
+                            ultimo_mantenimiento, horas_acumuladas, activo,
+                            observaciones, creado_por, fecha_creacion)
+                           VALUES (%s, %s, %s, %s, 0, 1, %s, %s, %s)""",
+                        (
+                            id_compresor,
+                            id_m,
+                            freq,
+                            today if is_done else None,
+                            f"Auto-registrado desde reporte {folio}",
+                            "Sistema",
+                            today,
+                        )
+                    )
+                elif is_done:
+                    # Already registered AND performed → reset semáforo
+                    cursor.execute(
+                        """UPDATE mantenimientos
+                           SET horas_acumuladas = 0,
+                               ultimo_mantenimiento = %s
+                           WHERE id_compresor = %s
+                             AND id_mantenimiento = %s""",
+                        (today, id_compresor, id_m)
+                    )
+                # else: already registered, not done → leave untouched
+        # ── End semáforo ───────────────────────────────────────────────────
 
         conn.commit()
         cursor.close()

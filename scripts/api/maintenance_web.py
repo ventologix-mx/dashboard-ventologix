@@ -131,6 +131,7 @@ class UpdateMaintenanceRequest(BaseModel):
     id_mantenimiento: Optional[int] = None
     frecuencia_horas: Optional[int] = None
     ultimo_mantenimiento: Optional[date] = None
+    horas_acumuladas: Optional[float] = None
     activo: Optional[bool] = None
     observaciones: Optional[str] = None
     costo: Optional[float] = None
@@ -504,6 +505,9 @@ def update_maintenance(maintenance_id: int, request: UpdateMaintenanceRequest):
         if request.ultimo_mantenimiento is not None:
             update_fields.append("ultimo_mantenimiento = %s")
             update_values.append(request.ultimo_mantenimiento)
+        if request.horas_acumuladas is not None:
+            update_fields.append("horas_acumuladas = %s")
+            update_values.append(request.horas_acumuladas)
         if request.activo is not None:
             update_fields.append("activo = %s")
             update_values.append(request.activo)
