@@ -21,22 +21,22 @@ SCRIPT_DIR = Path(__file__).resolve().parent.parent.parent
 LIB_DIR = SCRIPT_DIR / "lib"
 GCS_KEY_FILE = str(LIB_DIR / "gcs-storage-key.json")
 
-BUCKET_NAME = "vento-save-archive"
+BUCKET_NAME = "vento-archive"
+
+
+def get_credentials():
+    return service_account.Credentials.from_service_account_file(GCS_KEY_FILE)
 
 
 def get_gcs_client():
     """Initialize and return a GCS Storage client using service account credentials."""
-    credentials = service_account.Credentials.from_service_account_file(GCS_KEY_FILE)
+    credentials = get_credentials()
     return storage.Client(credentials=credentials, project=credentials.project_id)
 
 
 def get_bucket():
     """Return the GCS bucket instance."""
     return get_gcs_client().bucket(BUCKET_NAME)
-
-
-def _make_public_url(blob_name: str) -> str:
-    return f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_name}"
 
 
 def upload_photo(bucket, file_content: bytes, blob_name: str, mime_type: str = 'image/jpeg') -> dict:
@@ -55,14 +55,8 @@ def upload_photo(bucket, file_content: bytes, blob_name: str, mime_type: str = '
     try:
         blob = bucket.blob(blob_name)
         blob.upload_from_string(file_content, content_type=mime_type)
-        try:
-            blob.make_public()
-        except Exception:
-            pass  # Bucket may use uniform access; URL works if bucket is publicly readable
-
-        public_url = _make_public_url(blob_name)
         print(f"✅ Uploaded: {blob_name}")
-        return {"blob_name": blob_name, "public_url": public_url}
+        return {"blob_name": blob_name}
 
     except Exception as error:
         print(f"❌ Error uploading {blob_name}: {error}")
@@ -142,7 +136,6 @@ def upload_maintenance_photos(client_name: str, folio: str, photos_by_category: 
                     "blob_name": file_info["blob_name"],
                     "filename": unique_filename,
                     "category": standard_category,
-                    "public_url": file_info["public_url"],
                 })
 
         print(f"\n✅ Successfully uploaded all photos for folio {folio}")
@@ -194,9 +187,8 @@ def list_gcs_photos_by_folio(client_name: str, folio: str) -> dict:
                 continue
 
             category = parts[0]
-            public_url = _make_public_url(blob.name)
-            by_category.setdefault(category, []).append(public_url)
-            flat.append(public_url)
+            by_category.setdefault(category, []).append(blob.name)
+            flat.append(blob.name)
 
         return {"by_category": by_category, "flat": flat}
 
