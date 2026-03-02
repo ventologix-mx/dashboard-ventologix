@@ -23,7 +23,38 @@ async def main() -> None:
             page = await browser.new_page()
             await page.goto(view_url, wait_until="networkidle", timeout=30000)
             await page.wait_for_selector(".bg-white", timeout=10000)
-            await page.wait_for_timeout(2000)
+
+            # Scroll through the full page to trigger lazy-loaded images
+            await page.evaluate("""async () => {
+                await new Promise(resolve => {
+                    let totalHeight = 0;
+                    const distance = 400;
+                    const timer = setInterval(() => {
+                        window.scrollBy(0, distance);
+                        totalHeight += distance;
+                        if (totalHeight >= document.body.scrollHeight) {
+                            clearInterval(timer);
+                            window.scrollTo(0, 0);
+                            resolve();
+                        }
+                    }, 100);
+                });
+            }""")
+
+            # Wait for every <img> to finish loading
+            await page.evaluate("""async () => {
+                const imgs = Array.from(document.querySelectorAll('img'));
+                await Promise.all(imgs.map(img => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise(resolve => {
+                        img.addEventListener('load', resolve);
+                        img.addEventListener('error', resolve);
+                    });
+                }));
+            }""")
+
+            # Extra buffer after images load
+            await page.wait_for_timeout(1500)
 
             await page.evaluate("""() => {
                 document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
