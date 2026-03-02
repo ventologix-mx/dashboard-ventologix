@@ -526,7 +526,7 @@ def finalizar_reporte(folio: str = Path(..., description="Folio del reporte")):
                             id_compresor,
                             id_m,
                             freq,
-                            today if is_done else None,
+                            today,  # use today as baseline; horas_acumuladas=0 tracks actual usage
                             f"Auto-registrado desde reporte {folio}",
                             "Sistema",
                             today,

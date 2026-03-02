@@ -1,101 +1,51 @@
 """
-PDF Generation using Playwright to capture React view
+PDF Generation using Playwright.
+Runs the browser in a separate subprocess to avoid asyncio/ProactorEventLoop
+conflicts on Windows when called from uvicorn.
 """
+import asyncio
 import os
-import tempfile
-from playwright.async_api import async_playwright
+import subprocess
+import sys
+import traceback
+
 from fastapi import HTTPException
+
+_WORKER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_worker_script.py")
+
+
+def _run_worker(folio: str, frontend_url: str) -> bytes:
+    """Blocking call — intended to run inside run_in_executor."""
+    result = subprocess.run(
+        [sys.executable, _WORKER, folio, frontend_url],
+        capture_output=True,
+        timeout=90,
+    )
+    stderr_text = result.stderr.decode("utf-8", errors="replace")
+    if stderr_text:
+        print(stderr_text)  # forward worker logs to server console
+
+    if result.returncode != 0:
+        raise RuntimeError(f"PDF worker exited {result.returncode}:\n{stderr_text}")
+
+    if not result.stdout:
+        raise RuntimeError(f"PDF worker returned no data.\n{stderr_text}")
+
+    return result.stdout
 
 
 async def generate_pdf_from_react(folio: str, frontend_url: str = "https://dashboard.ventologix.com") -> bytes:
     """
     Generate a PDF by capturing the React view page using Playwright.
-
-    Args:
-        folio: The folio number of the report
-        frontend_url: Base URL of the frontend application
-
-    Returns:
-        PDF file content as bytes
+    The browser runs in a subprocess to avoid Windows event-loop conflicts.
     """
     try:
-        async with async_playwright() as p:
-            # Launch browser in headless mode
-            browser = await p.chromium.launch(headless=True)
-
-            # Create a new page
-            page = await browser.new_page()
-
-            # Navigate to the view page with the folio
-            view_url = f"{frontend_url}/features/compressor-maintenance/reports/view?folio={folio}"
-            print(f"📄 Opening page: {view_url}")
-
-            await page.goto(view_url, wait_until="networkidle", timeout=30000)
-
-            # Wait for the main content to load
-            await page.wait_for_selector('.bg-white', timeout=10000)
-
-            # Give extra time for images to load
-            await page.wait_for_timeout(2000)
-
-            # Hide navigation buttons and elements that shouldn't be in PDF
-            await page.evaluate("""
-                () => {
-                    // Hide all elements with 'no-print' class
-                    const noPrintElements = document.querySelectorAll('.no-print');
-                    noPrintElements.forEach(el => {
-                        el.style.display = 'none';
-                    });
-
-                    // Hide sidebar/navigation menu
-                    const sidebar = document.querySelector('aside');
-                    if (sidebar) sidebar.style.display = 'none';
-
-                    // Hide any nav elements
-                    const navElements = document.querySelectorAll('nav');
-                    navElements.forEach(nav => nav.style.display = 'none');
-
-                    // Hide any fixed/sticky headers or footers
-                    const fixedElements = document.querySelectorAll('[class*="fixed"], [class*="sticky"]');
-                    fixedElements.forEach(el => {
-                        if (!el.closest('.bg-white.rounded-lg')) {
-                            el.style.display = 'none';
-                        }
-                    });
-
-                    // Remove background color from body to avoid extra space
-                    document.body.style.backgroundColor = 'white';
-
-                    // Remove padding from main container
-                    const mainContainer = document.querySelector('.min-h-screen');
-                    if (mainContainer) {
-                        mainContainer.style.minHeight = 'auto';
-                        mainContainer.style.padding = '20px';
-                    }
-                }
-            """)
-
-            # Generate PDF with proper settings in A3 format
-            pdf_bytes = await page.pdf(
-                format='A3',
-                print_background=True,
-                margin={
-                    'top': '0.5in',
-                    'right': '0.5in',
-                    'bottom': '0.5in',
-                    'left': '0.5in'
-                },
-                prefer_css_page_size=False,
-            )
-
-            await browser.close()
-
-            print(f"✅ PDF generated successfully for folio: {folio}")
-            return pdf_bytes
-
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _run_worker, folio, frontend_url)
     except Exception as e:
-        print(f"❌ Error generating PDF: {str(e)}")
+        tb = traceback.format_exc()
+        print(f"❌ Error generating PDF: {type(e).__name__}: {repr(e)}\n{tb}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating PDF: {str(e)}"
+            detail=f"Error generating PDF [{type(e).__name__}]: {repr(e)}",
         )
