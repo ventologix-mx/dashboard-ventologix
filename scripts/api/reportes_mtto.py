@@ -253,7 +253,7 @@ async def upload_photos(
                 "success": True,
                 "message": f"Successfully uploaded {len(files)} photo(s) to Google Cloud Storage",
                 "uploaded_files": result["uploaded_files"],
-                "folder_structure": result["folder_structure"]
+                "gcs_prefix": result["gcs_prefix"]
             }
         else:
             print(f"❌ [DEBUG] Upload failed: {result.get('error')}")

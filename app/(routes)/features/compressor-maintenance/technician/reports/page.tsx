@@ -272,7 +272,7 @@ const TypeReportes = () => {
   ): string => {
     const clientId =
       idCliente === "EVENTUAL" ? "00" : String(idCliente).padStart(2, "0");
-    const last4Digits = serialNumber.slice(-4).padStart(4, "0");
+    const last4Digits = (serialNumber ?? "").slice(-4).padStart(4, "0");
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -291,14 +291,14 @@ const TypeReportes = () => {
     const folio = generateFolio(compressor.id_cliente, compressor.numero_serie);
     setTicketData({
       folio: folio,
-      clientName: compressor.nombre_cliente,
-      numeroCliente: compressor.numero_cliente.toString(),
-      alias: compressor.alias,
-      serialNumber: compressor.numero_serie,
-      hp: compressor.hp.toString(),
-      tipo: compressor.tipo,
-      marca: compressor.marca,
-      anio: compressor.anio.toString(),
+      clientName: compressor.nombre_cliente ?? "",
+      numeroCliente: compressor.numero_cliente?.toString() ?? "",
+      alias: compressor.alias ?? "",
+      serialNumber: compressor.numero_serie ?? "",
+      hp: compressor.hp?.toString() ?? "",
+      tipo: compressor.tipo ?? "",
+      marca: compressor.marca ?? "",
+      anio: compressor.anio?.toString() ?? "",
       problemDescription: "",
       tipoMantenimiento: "",
       priority: "media",
