@@ -447,10 +447,10 @@ function FillReport() {
       const fieldToCategoryMap: { [key: string]: string } = {
         photo1: "PLACAS_EQUIPO",
         photo2: "DISPLAY_HORAS", // Alarmas del sistema
-        photo3: "TEMPERATURAS",
-        photo4: "PRESIONES",
+        photo3: "PLACAS_EQUIPO",
+        photo4: "PLACAS_EQUIPO",
         photo5: "CONDICIONES_AMBIENTALES",
-        photo6: "OTROS",
+        photo6: "ACEITE",
       };
 
       const category = fieldToCategoryMap[fieldName];
@@ -1889,12 +1889,13 @@ function FillReport() {
                   </div>
                   <PhotoUploadSection
                     category="DISPLAY_HORAS"
-                    label="Fotos Horas Generales de Trabajo"
+                    label="Fotos Display / Horas de Trabajo / Alarmas del Sistema"
                     photos={photosByCategory.DISPLAY_HORAS}
                     onPhotoAdd={handleCategorizedPhotoChange}
                     onPhotoRemove={removeCategorizedPhoto}
                     uploadStatus={uploadStatus.DISPLAY_HORAS || "idle"}
                     uploadProgress={uploadProgress.DISPLAY_HORAS || 0}
+                    multiple={true}
                   />
                   <div>
                     <label className="block text-m font-medium text-gray-700 mb-2">
@@ -1935,22 +1936,7 @@ function FillReport() {
                       placeholder="0"
                     />
                   </div>
-                  <div>
-                    <label className="block text-m font-medium text-gray-700 mb-2">
-                      📷 Foto Alarmas del Sistema
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileChange(e, "photo2")}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    />
-                    {formData.photo2 && (
-                      <p className="text-m text-green-600 mt-1">
-                        ✓ {formData.photo2.name}
-                      </p>
-                    )}
-                  </div>
+                  {/* Foto Alarmas integrada en el PhotoUploadSection de DISPLAY_HORAS */}
                   <div className="md:col-span-2">
                     <label className="block text-m font-medium text-gray-700 mb-2">
                       Condición de Próximo Mantenimiento
@@ -1995,20 +1981,16 @@ function FillReport() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="md:col-span-2">
-                        <label className="block text-m font-medium text-gray-700 mb-2">
-                          📷 Foto Placa del Compresor
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleFileChange(e, "photo3")}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                        <PhotoUploadSection
+                          category="PLACAS_EQUIPO"
+                          label="Fotos Placas del Equipo (Compresor y Motor)"
+                          photos={photosByCategory.PLACAS_EQUIPO}
+                          onPhotoAdd={handleCategorizedPhotoChange}
+                          onPhotoRemove={removeCategorizedPhoto}
+                          uploadStatus={uploadStatus.PLACAS_EQUIPO || "idle"}
+                          uploadProgress={uploadProgress.PLACAS_EQUIPO || 0}
+                          multiple={true}
                         />
-                        {formData.photo3 && (
-                          <p className="text-m text-green-600 mt-1">
-                            ✓ {formData.photo3.name}
-                          </p>
-                        )}
                       </div>
                       <div>
                         <label className="block text-m font-medium text-gray-700 mb-2">
@@ -2034,22 +2016,6 @@ function FillReport() {
                       Placa del Motor
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="md:col-span-2">
-                        <label className="block text-m font-medium text-gray-700 mb-2">
-                          📷 Foto Placa del Motor
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleFileChange(e, "photo4")}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                        />
-                        {formData.photo4 && (
-                          <p className="text-m text-green-600 mt-1">
-                            {formData.photo4.name}
-                          </p>
-                        )}
-                      </div>
                       <div>
                         <label className="block text-m font-medium text-gray-700 mb-2">
                           AMP Máximo
@@ -2076,20 +2042,16 @@ function FillReport() {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
-                    <label className="block text-m font-medium text-gray-700 mb-2">
-                      📷 Foto Condiciones Ambientales
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileChange(e, "photo5")}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    <PhotoUploadSection
+                      category="CONDICIONES_AMBIENTALES"
+                      label="Fotos Condiciones Ambientales"
+                      photos={photosByCategory.CONDICIONES_AMBIENTALES}
+                      onPhotoAdd={handleCategorizedPhotoChange}
+                      onPhotoRemove={removeCategorizedPhoto}
+                      uploadStatus={uploadStatus.CONDICIONES_AMBIENTALES || "idle"}
+                      uploadProgress={uploadProgress.CONDICIONES_AMBIENTALES || 0}
+                      multiple={true}
                     />
-                    {formData.photo5 && (
-                      <p className="text-m text-green-600 mt-1">
-                        ✓ {formData.photo5.name}
-                      </p>
-                    )}
                   </div>
                   <div>
                     <label className="block text-m font-medium text-gray-700 mb-2">
@@ -2229,20 +2191,16 @@ function FillReport() {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
-                    <label className="block text-m font-medium text-gray-700 mb-2">
-                      📷 Foto Separador Aire-Aceite
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileChange(e, "photo6")}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    <PhotoUploadSection
+                      category="ACEITE"
+                      label="Fotos Separador Aire-Aceite y Nivel de Aceite"
+                      photos={photosByCategory.ACEITE}
+                      onPhotoAdd={handleCategorizedPhotoChange}
+                      onPhotoRemove={removeCategorizedPhoto}
+                      uploadStatus={uploadStatus.ACEITE || "idle"}
+                      uploadProgress={uploadProgress.ACEITE || 0}
+                      multiple={true}
                     />
-                    {formData.photo6 && (
-                      <p className="text-m text-green-600 mt-1">
-                        ✓ {formData.photo6.name}
-                      </p>
-                    )}
                   </div>
                   <div>
                     <label className="block text-m font-medium text-gray-700 mb-2">
@@ -2311,6 +2269,18 @@ function FillReport() {
                   TEMPERATURAS - PRE-MANTENIMIENTO
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <PhotoUploadSection
+                      category="TEMPERATURAS"
+                      label="Fotos de Temperaturas (Display, Laser, Motor)"
+                      photos={photosByCategory.TEMPERATURAS}
+                      onPhotoAdd={handleCategorizedPhotoChange}
+                      onPhotoRemove={removeCategorizedPhoto}
+                      uploadStatus={uploadStatus.TEMPERATURAS || "idle"}
+                      uploadProgress={uploadProgress.TEMPERATURAS || 0}
+                      multiple={true}
+                    />
+                  </div>
                   <div>
                     <label className="block text-m font-medium text-gray-700 mb-2">
                       Temp. Ambiente (°C)
@@ -2418,6 +2388,18 @@ function FillReport() {
                   MEDICIONES DE PRESIÓN - PRE-MANTENIMIENTO
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <PhotoUploadSection
+                      category="PRESIONES"
+                      label="Fotos de Manómetros y Presiones"
+                      photos={photosByCategory.PRESIONES}
+                      onPhotoAdd={handleCategorizedPhotoChange}
+                      onPhotoRemove={removeCategorizedPhoto}
+                      uploadStatus={uploadStatus.PRESIONES || "idle"}
+                      uploadProgress={uploadProgress.PRESIONES || 0}
+                      multiple={true}
+                    />
+                  </div>
                   <div>
                     <label className="block text-m font-medium text-gray-700 mb-2">
                       Método de Control de Presión
@@ -3405,6 +3387,107 @@ function FillReport() {
                   <h2 className="text-xl font-bold text-center">
                     POST-MANTENIMIENTO
                   </h2>
+                </div>
+              </div>
+
+              {/* TABLA COMPARATIVA PRE vs POST */}
+              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 className="text-white bg-orange-600 px-4 py-2 rounded font-bold mb-4">
+                  COMPARATIVA PRE vs POST MANTENIMIENTO
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  Esta tabla compara las mediciones tomadas antes y después del mantenimiento. Los valores post-mantenimiento se actualizan conforme se completan los campos.
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-gray-700 w-1/3">
+                          Parámetro
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-purple-800 w-1/3">
+                          PRE-Mantenimiento
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-orange-700 w-1/3">
+                          POST-Mantenimiento
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: "Display Enciende", pre: formData.displayPowers, post: formData.displayPowersFinal },
+                        { label: "Horas Totales", pre: formData.generalHours, post: formData.generalHoursFinal },
+                        { label: "Horas en Carga", pre: formData.loadHours, post: formData.loadHoursFinal },
+                        { label: "Horas en Descarga", pre: formData.unloadHours, post: formData.unloadHoursFinal },
+                        { label: "Voltaje Alimentación (V)", pre: formData.supplyVoltage, post: formData.supplyVoltageFinal },
+                        { label: "Amperaje Motor en Carga (A)", pre: formData.mainMotorAmperage, post: formData.mainMotorAmperageFinal },
+                        { label: "Amperaje Ventilador (A)", pre: formData.fanAmperage, post: formData.fanAmperageFinal },
+                        { label: "Fugas de Aceite", pre: formData.oilLeaks, post: formData.oilLeaksFinal },
+                        { label: "Aceite Oscuro/Degradado", pre: formData.aceiteOscuro, post: formData.aceiteOscuroFinal },
+                        { label: "Temp. Ambiente (°C)", pre: formData.airIntakeTemp, post: formData.airIntakeTempFinal },
+                        { label: "Temp. Compresión Display (°C)", pre: formData.compressionTempDisplay, post: formData.compressionTempDisplayFinal },
+                        { label: "Temp. Compresión Laser (°C)", pre: formData.compressionTempLaser, post: formData.compressionTempLaserFinal },
+                        { label: "Temp. Separador Aceite (°C)", pre: formData.finalCompressionTemp, post: formData.finalCompressionTempFinal },
+                        { label: "Temp. Interna Cuarto (°C)", pre: formData.internalTemp, post: formData.internalTempFinal },
+                        { label: "Delta T Enfriador Aceite (°C)", pre: formData.deltaTAceite, post: formData.deltaTAceiteFinal },
+                        { label: "Temp. Motor Eléctrico (°C)", pre: formData.tempMotor, post: formData.tempMotorFinal },
+                        { label: "Presión Carga (PSI)", pre: formData.loadPressure, post: formData.loadPressureFinal },
+                        { label: "Presión Descarga (PSI)", pre: formData.unloadPressure, post: formData.unloadPressureFinal },
+                        { label: "Delta P Separador (PSI)", pre: formData.deltaPSeparador, post: formData.deltaPSeparadorFinal },
+                        { label: "Fugas de Aire", pre: formData.airLeaks, post: formData.airLeaksFinal },
+                      ].map((row, idx) => {
+                        const preVal = row.pre || "—";
+                        const postVal = row.post || "—";
+                        const hasPost = !!row.post;
+                        const changed = hasPost && row.pre !== row.post;
+                        const improved =
+                          hasPost &&
+                          ((row.post === "No" && row.pre === "Sí") ||
+                            (row.post === "Sí" && row.pre === "No" &&
+                              ["Display Enciende"].includes(row.label)));
+                        const worsened =
+                          hasPost &&
+                          row.post === "Sí" &&
+                          row.pre === "No" &&
+                          ["Fugas de Aceite", "Aceite Oscuro/Degradado", "Fugas de Aire"].includes(row.label);
+
+                        return (
+                          <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                            <td className="border border-gray-300 px-3 py-2 font-medium text-gray-700">
+                              {row.label}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-center text-purple-900">
+                              {preVal}
+                            </td>
+                            <td
+                              className={`border border-gray-300 px-3 py-2 text-center font-semibold ${
+                                worsened
+                                  ? "bg-red-100 text-red-700"
+                                  : improved
+                                  ? "bg-green-100 text-green-700"
+                                  : changed
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "text-gray-700"
+                              }`}
+                            >
+                              {postVal}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-600">
+                  <span className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded bg-green-200 inline-block"></span> Mejorado
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded bg-yellow-200 inline-block"></span> Cambió
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded bg-red-200 inline-block"></span> Empeoró
+                  </span>
                 </div>
               </div>
 

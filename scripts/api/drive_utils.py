@@ -67,7 +67,8 @@ def upload_maintenance_photos(client_name: str, folio: str, photos_by_category: 
     """
     Upload maintenance report photos organized by category to GCS.
 
-    Path structure: {client_name}/{folio}/PHOTOS/{category}/{unique_filename}
+    Path structure: mantenimiento/{year}/{month}/{client_name}/{folio}/{category}/{filename}
+    Files are named descriptively, e.g.: Foto_Presion1.jpg, Foto_Display1.jpg
 
     Args:
         client_name: Client name
@@ -103,6 +104,19 @@ def upload_maintenance_photos(client_name: str, folio: str, photos_by_category: 
         "OTHER": "OTROS",
     }
 
+    # Descriptive label used in the filename for each category
+    category_label_map = {
+        "ACEITE": "Aceite",
+        "CONDICIONES_AMBIENTALES": "CondAmbiental",
+        "DISPLAY_HORAS": "Display",
+        "PLACAS_EQUIPO": "Placa",
+        "TEMPERATURAS": "Temperatura",
+        "PRESIONES": "Presion",
+        "TANQUES": "Tanque",
+        "MANTENIMIENTO": "Mantenimiento",
+        "OTROS": "Otro",
+    }
+
     try:
         bucket = get_bucket()
         now = datetime.now()
@@ -121,13 +135,24 @@ def upload_maintenance_photos(client_name: str, folio: str, photos_by_category: 
 
             category_key = category.upper().replace(" ", "_")
             standard_category = category_map.get(category_key, "OTROS")
+            label = category_label_map.get(standard_category, "Foto")
             uploaded_files[category] = []
 
             print(f"\n📤 Uploading {len(photos)} photo(s) to {standard_category}")
 
             for idx, (filename, file_content, mime_type) in enumerate(photos):
-                timestamp = now.strftime("%Y%m%d_%H%M%S")
-                unique_filename = f"{clean_folio}_{timestamp}_{idx}_{filename}"
+                # Determine file extension from original filename or mime type
+                original_ext = ""
+                if "." in filename:
+                    original_ext = "." + filename.rsplit(".", 1)[-1].lower()
+                elif mime_type:
+                    ext_map = {"image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif", "image/webp": ".webp"}
+                    original_ext = ext_map.get(mime_type, ".jpg")
+                else:
+                    original_ext = ".jpg"
+
+                # Descriptive name: Foto_Presion1.jpg, Foto_Display2.jpg, etc.
+                unique_filename = f"Foto_{label}{idx + 1}{original_ext}"
                 blob_name = f"{base_prefix}/{standard_category}/{unique_filename}"
 
                 file_info = upload_photo(bucket, file_content, blob_name, mime_type)
