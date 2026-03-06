@@ -1032,6 +1032,108 @@ function ViewReportContent() {
           </div>
         )}
 
+        {/* Comparison Table PRE vs POST */}
+        {preMaintenanceData && postMaintenanceData && (
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 className="text-white bg-orange-600 px-4 py-2 rounded font-bold mb-2">
+              COMPARATIVA PRE vs POST MANTENIMIENTO
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Resumen de las mediciones tomadas antes y después del mantenimiento.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-gray-700 w-1/3">
+                      Parámetro
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-purple-800 w-1/3">
+                      PRE-Mantenimiento
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-orange-700 w-1/3">
+                      POST-Mantenimiento
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { label: "Display Enciende", pre: preMaintenanceData.display_enciende, post: postMaintenanceData.display_enciende_final },
+                    { label: "Horas Totales", pre: preMaintenanceData.horas_totales, post: postMaintenanceData.horas_totales_final, unit: " hrs" },
+                    { label: "Horas en Carga", pre: preMaintenanceData.horas_carga, post: postMaintenanceData.horas_carga_final, unit: " hrs" },
+                    { label: "Horas en Descarga", pre: preMaintenanceData.horas_descarga, post: postMaintenanceData.horas_descarga_final, unit: " hrs" },
+                    { label: "Voltaje Alimentación (V)", pre: preMaintenanceData.voltaje_alimentacion, post: postMaintenanceData.voltaje_alimentacion_final },
+                    { label: "Amperaje Motor en Carga (A)", pre: preMaintenanceData.amperaje_motor_carga, post: postMaintenanceData.amperaje_motor_carga_final },
+                    { label: "Amperaje Ventilador (A)", pre: preMaintenanceData.amperaje_ventilador, post: postMaintenanceData.amperaje_ventilador_final },
+                    { label: "Fugas de Aceite", pre: preMaintenanceData.fugas_aceite_visibles, post: postMaintenanceData.fugas_aceite_final },
+                    { label: "Aceite Oscuro/Degradado", pre: preMaintenanceData.aceite_oscuro_degradado, post: postMaintenanceData.aceite_oscuro_final },
+                    { label: "Fugas de Aire", pre: preMaintenanceData.fugas_aire_audibles, post: postMaintenanceData.fugas_aire_final },
+                    { label: "Temp. Compresión Display (°C)", pre: preMaintenanceData.temp_compresion_display, post: postMaintenanceData.temp_compresion_display_final },
+                    { label: "Temp. Compresión Láser (°C)", pre: preMaintenanceData.temp_compresion_laser, post: postMaintenanceData.temp_compresion_laser_final },
+                    { label: "Temp. Separador Aceite (°C)", pre: preMaintenanceData.temp_separador_aceite, post: postMaintenanceData.temp_separador_aceite_final },
+                    { label: "Temp. Interna Cuarto (°C)", pre: preMaintenanceData.temp_interna_cuarto, post: postMaintenanceData.temp_interna_cuarto_final },
+                    { label: "Delta T Enfriador Aceite (°C)", pre: preMaintenanceData.delta_t_enfriador_aceite, post: postMaintenanceData.delta_t_enfriador_aceite_final },
+                    { label: "Temp. Motor Eléctrico (°C)", pre: preMaintenanceData.temp_motor_electrico, post: postMaintenanceData.temp_motor_electrico_final },
+                    { label: "Presión Carga (PSI)", pre: preMaintenanceData.presion_carga, post: postMaintenanceData.presion_carga_final },
+                    { label: "Presión Descarga (PSI)", pre: preMaintenanceData.presion_descarga, post: postMaintenanceData.presion_descarga_final },
+                    { label: "Delta P Separador (PSI)", pre: preMaintenanceData.delta_p_separador, post: postMaintenanceData.delta_p_separador_final },
+                  ].map((row, idx) => {
+                    const preStr = row.pre !== undefined && row.pre !== null ? String(row.pre) + (row.unit || "") : "—";
+                    const postStr = row.post !== undefined && row.post !== null ? String(row.post) + (row.unit || "") : "—";
+                    const hasPost = row.post !== undefined && row.post !== null;
+                    const changed = hasPost && String(row.pre) !== String(row.post);
+                    const worsened =
+                      hasPost &&
+                      String(row.post) === "Sí" &&
+                      String(row.pre) === "No" &&
+                      ["Fugas de Aceite", "Aceite Oscuro/Degradado", "Fugas de Aire"].includes(row.label);
+                    const improved =
+                      hasPost &&
+                      String(row.post) === "No" &&
+                      String(row.pre) === "Sí" &&
+                      ["Fugas de Aceite", "Aceite Oscuro/Degradado", "Fugas de Aire"].includes(row.label);
+
+                    return (
+                      <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                        <td className="border border-gray-300 px-3 py-2 font-medium text-gray-700">
+                          {row.label}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 text-center text-purple-900">
+                          {preStr}
+                        </td>
+                        <td
+                          className={`border border-gray-300 px-3 py-2 text-center font-semibold ${
+                            worsened
+                              ? "bg-red-100 text-red-700"
+                              : improved
+                              ? "bg-green-100 text-green-700"
+                              : changed
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "text-gray-700"
+                          }`}
+                        >
+                          {postStr}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-600">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-green-200 inline-block"></span> Mejorado
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-yellow-200 inline-block"></span> Cambió
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-red-200 inline-block"></span> Empeoró
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Post-Maintenance Data */}
         {postMaintenanceData && (
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">

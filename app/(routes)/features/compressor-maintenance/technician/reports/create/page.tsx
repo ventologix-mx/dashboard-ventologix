@@ -17,7 +17,6 @@ import { usePreMantenimiento } from "@/hooks/usePreMantenimiento";
 import { usePostMantenimiento } from "@/hooks/usePostMantenimiento";
 import { usePhotoUpload } from "@/hooks/usePhotoUpload";
 import { PhotoUploadSection } from "@/components/PhotoUploadSection";
-import SignatureCanvas from "react-signature-canvas";
 
 interface MaintenanceItem {
   nombre: string;
@@ -51,9 +50,6 @@ function FillReport() {
   const { savePostMantenimiento } = usePostMantenimiento();
   const { uploadPhotos, uploadStatus, uploadProgress } = usePhotoUpload();
 
-  // Refs para los canvas de firma
-  const signatureCanvasRef = useRef<SignatureCanvas>(null); // Cliente
-  const engineerSignatureCanvasRef = useRef<SignatureCanvas>(null); // Ingeniero
   // Guard to prevent re-loading data on re-renders
   const dataLoadedRef = useRef<string | null>(null);
 
@@ -193,10 +189,6 @@ function FillReport() {
     unloadPressureFinal: "",
     deltaPSeparadorFinal: "",
     airLeaksFinal: "",
-    // Firmas
-    nombrePersonaCargo: "",
-    firmaPersonaCargo: "",
-    firmaTecnicoVentologix: "",
   });
 
   const loadPreMaintenanceData = async (folio: string) => {
@@ -700,9 +692,6 @@ function FillReport() {
             ? parseFloat(formData.deltaPSeparadorFinal)
             : undefined,
           fugas_aire_final: formData.airLeaksFinal || undefined,
-          nombre_persona_cargo: formData.nombrePersonaCargo || undefined,
-          firma_persona_cargo: formData.firmaPersonaCargo || undefined,
-          firma_tecnico_ventologix: formData.firmaTecnicoVentologix || undefined,
         };
       };
 
@@ -1049,44 +1038,6 @@ function FillReport() {
         ...maintenanceData,
         evidenciasFotos: updatedEvidencias,
       });
-    }
-  };
-
-  // Handlers para firma del cliente
-  const clearSignature = () => {
-    if (signatureCanvasRef.current) {
-      signatureCanvasRef.current.clear();
-      setFormData({ ...formData, firmaPersonaCargo: "" });
-    }
-  };
-
-  const saveSignature = () => {
-    if (signatureCanvasRef.current) {
-      // Usar toDataURL directamente del canvas sin trim para evitar error
-      const canvas = signatureCanvasRef.current.getCanvas();
-      const signatureData = canvas.toDataURL("image/png");
-      setFormData({ ...formData, firmaPersonaCargo: signatureData });
-      console.log("✍️ Firma del cliente guardada");
-      alert("✅ Firma del cliente guardada");
-    }
-  };
-
-  // Handlers para firma del ingeniero
-  const clearEngineerSignature = () => {
-    if (engineerSignatureCanvasRef.current) {
-      engineerSignatureCanvasRef.current.clear();
-      setFormData({ ...formData, firmaTecnicoVentologix: "" });
-    }
-  };
-
-  const saveEngineerSignature = () => {
-    if (engineerSignatureCanvasRef.current) {
-      // Usar toDataURL directamente del canvas sin trim para evitar error
-      const canvas = engineerSignatureCanvasRef.current.getCanvas();
-      const signatureData = canvas.toDataURL("image/png");
-      setFormData({ ...formData, firmaTecnicoVentologix: signatureData });
-      console.log("✍️ Firma del ingeniero guardada");
-      alert("✅ Firma del ingeniero guardada");
     }
   };
 
@@ -3890,144 +3841,6 @@ function FillReport() {
                 </div>
               </div>
 
-              {/* SECCIÓN 8: Firmas */}
-              <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
-                <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-4">
-                  <h2 className="text-xl font-bold text-center">
-                    FIRMAS Y VALIDACIÓN
-                  </h2>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Firma del Técnico de Ventologix */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-bold text-orange-900 border-b-2 border-orange-600 pb-2">
-                      Técnico de Ventologix
-                    </h3>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Firma del Ingeniero *
-                      </label>
-                      <div className="border-2 border-gray-300 rounded-lg bg-white">
-                        <SignatureCanvas
-                          ref={engineerSignatureCanvasRef}
-                          canvasProps={{
-                            className: "w-full h-48 rounded-lg",
-                          }}
-                          backgroundColor="rgb(255, 255, 255)"
-                          penColor="rgb(0, 0, 0)"
-                        />
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          type="button"
-                          onClick={clearEngineerSignature}
-                          className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
-                        >
-                          🗑️ Limpiar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={saveEngineerSignature}
-                          className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
-                        >
-                          💾 Guardar Firma
-                        </button>
-                      </div>
-                      {formData.firmaTecnicoVentologix && (
-                        <div className="mt-2 p-2 bg-green-50 border border-green-300 rounded text-sm text-green-700 text-center">
-                          ✅ Firma del ingeniero guardada
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Firma de la Persona a Cargo del Cliente */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-bold text-orange-900 border-b-2 border-orange-600 pb-2">
-                      Persona a Cargo (Cliente)
-                    </h3>
-
-                    {/* Nombre de la persona */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Nombre Completo *
-                      </label>
-                      <input
-                        type="text"
-                        name="nombrePersonaCargo"
-                        value={formData.nombrePersonaCargo}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                        placeholder="Ingrese nombre completo"
-                        required
-                      />
-                    </div>
-
-                    {/* Canvas de firma */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Firma Digital *
-                      </label>
-                      <div className="border-2 border-gray-300 rounded-lg bg-white">
-                        <SignatureCanvas
-                          ref={signatureCanvasRef}
-                          canvasProps={{
-                            className: "w-full h-48 rounded-lg",
-                          }}
-                          backgroundColor="rgb(255, 255, 255)"
-                          penColor="rgb(0, 0, 0)"
-                        />
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          type="button"
-                          onClick={clearSignature}
-                          className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
-                        >
-                          🗑️ Limpiar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={saveSignature}
-                          className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
-                        >
-                          💾 Guardar Firma
-                        </button>
-                      </div>
-                      {formData.firmaPersonaCargo && (
-                        <div className="mt-2 p-2 bg-green-50 border border-green-300 rounded text-sm text-green-700 text-center">
-                          ✓ Firma guardada correctamente
-                        </div>
-                      )}
-                      <p className="text-xs text-gray-500 mt-2">
-                        Dibuje su firma usando el mouse o el dedo en
-                        dispositivos táctiles
-                      </p>
-                    </div>
-
-                    <div className="text-center border-t-2 border-gray-400 pt-4 mt-4">
-                      <p className="font-medium text-gray-800">
-                        {formData.nombrePersonaCargo || "_____________________"}
-                      </p>
-                      <p className="text-sm text-gray-600">Nombre y Firma</p>
-                      <p className="text-xs text-gray-500">Cliente</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Nota legal */}
-                <div className="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
-                  <p className="text-m text-gray-600 text-center">
-                    Al firmar este documento, la persona a cargo confirma que el
-                    servicio de mantenimiento fue realizado satisfactoriamente y
-                    que las mediciones fueron tomadas en su presencia. Esta
-                    firma tiene validez legal como constancia de servicio.
-                  </p>
-                </div>
-              </div>
             </div>
           )}
 
