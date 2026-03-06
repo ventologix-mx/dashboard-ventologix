@@ -64,6 +64,11 @@ function FillReport() {
     [category: string]: File[];
   }>({
     ACEITE: [],
+    DISPLAY_HORAS_POST: [],
+    ACEITE_POST: [],
+    TEMPERATURAS_POST: [],
+    PRESIONES_POST: [],
+    OTROS_POST: [],
     CONDICIONES_AMBIENTALES: [],
     DISPLAY_HORAS: [],
     PLACAS_EQUIPO: [],
@@ -87,14 +92,17 @@ function FillReport() {
     TANQUES: false,
     MANTENIMIENTO: false,
     OTROS: false,
+    DISPLAY_HORAS_POST: false,
+    ACEITE_POST: false,
+    TEMPERATURAS_POST: false,
+    PRESIONES_POST: false,
+    OTROS_POST: false,
   });
 
   const [maintenanceData, setMaintenanceData] = useState({
     mantenimientos: defaultMaintenanceItems,
     comentarios_generales: "",
     comentario_cliente: "",
-    fotos: [] as File[],
-    evidenciasFotos: {} as Record<string, File[]>,
   });
 
   const [formData, setFormData] = useState<ReportFormData>({
@@ -308,8 +316,6 @@ function FillReport() {
           mantenimientos: updatedMantenimientos,
           comentarios_generales: savedData.comentarios_generales || "",
           comentario_cliente: savedData.comentario_cliente || "",
-          fotos: [],
-          evidenciasFotos: {},
         });
 
         // Show maintenance section if data exists
@@ -998,48 +1004,6 @@ function FillReport() {
     setMaintenanceData({ ...maintenanceData, [field]: value });
   };
 
-  const handleMaintenanceFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setMaintenanceData({
-        ...maintenanceData,
-        fotos: [...maintenanceData.fotos, ...filesArray],
-      });
-    }
-  };
-
-  const removeMaintenancePhoto = (index: number) => {
-    const updatedFotos = maintenanceData.fotos.filter((_, i) => i !== index);
-    setMaintenanceData({ ...maintenanceData, fotos: updatedFotos });
-  };
-
-  // Handler para fotos de evidencia de mantenimientos realizados
-  const handleMaintenanceEvidencePhoto = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    maintenanceIndex: number,
-  ) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      const updatedEvidencias = { ...maintenanceData.evidenciasFotos };
-      const stringIndex = maintenanceIndex.toString();
-
-      if (!updatedEvidencias[stringIndex]) {
-        updatedEvidencias[stringIndex] = [];
-      }
-
-      updatedEvidencias[stringIndex] = [
-        ...updatedEvidencias[stringIndex],
-        ...filesArray,
-      ];
-
-      setMaintenanceData({
-        ...maintenanceData,
-        evidenciasFotos: updatedEvidencias,
-      });
-    }
-  };
 
   // Function to update semaforo when maintenance is completed
   const updateMaintenanceSemaforo = async (
@@ -1316,10 +1280,6 @@ function FillReport() {
           maintenanceData.comentario_cliente,
         );
 
-        // Add maintenance photos
-        maintenanceData.fotos.forEach((foto, index) => {
-          submitData.append(`foto_mantenimiento_${index}`, foto);
-        });
       }
 
       // Send to backend API
@@ -3288,35 +3248,16 @@ function FillReport() {
                 <h2 className="text-white bg-teal-800 px-4 py-2 rounded font-bold mb-4">
                   FOTOS DEL MANTENIMIENTO - MANTENIMIENTO
                 </h2>
-                <div className="mb-4">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleMaintenanceFileChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                {maintenanceData.fotos.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {maintenanceData.fotos.map((foto, index) => (
-                      <div key={index} className="relative">
-                        <div className="border border-gray-300 rounded-lg p-2">
-                          <p className="text-m text-gray-600 truncate">
-                            {foto.name}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => removeMaintenancePhoto(index)}
-                            className="mt-2 w-full px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <PhotoUploadSection
+                  category="MANTENIMIENTO"
+                  label="Fotos del Mantenimiento Realizado"
+                  photos={photosByCategory.MANTENIMIENTO}
+                  onPhotoAdd={handleCategorizedPhotoChange}
+                  onPhotoRemove={removeCategorizedPhoto}
+                  uploadStatus={uploadStatus.MANTENIMIENTO || "idle"}
+                  uploadProgress={uploadProgress.MANTENIMIENTO || 0}
+                  multiple={true}
+                />
               </div>
 
               {/* Spacer removed - "Siguiente Sección" button at the bottom handles navigation to post-maintenance */}
@@ -3502,6 +3443,18 @@ function FillReport() {
                       placeholder="0"
                     />
                   </div>
+                  <div className="md:col-span-2">
+                    <PhotoUploadSection
+                      category="DISPLAY_HORAS_POST"
+                      label="Fotos Display / Horas de Trabajo Post-Mantenimiento"
+                      photos={photosByCategory.DISPLAY_HORAS_POST}
+                      onPhotoAdd={handleCategorizedPhotoChange}
+                      onPhotoRemove={removeCategorizedPhoto}
+                      uploadStatus={uploadStatus.DISPLAY_HORAS_POST || "idle"}
+                      uploadProgress={uploadProgress.DISPLAY_HORAS_POST || 0}
+                      multiple={true}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -3591,6 +3544,18 @@ function FillReport() {
                       <option value="Sí">Sí</option>
                       <option value="No">No</option>
                     </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <PhotoUploadSection
+                      category="ACEITE_POST"
+                      label="Fotos Aceite Post-Mantenimiento"
+                      photos={photosByCategory.ACEITE_POST}
+                      onPhotoAdd={handleCategorizedPhotoChange}
+                      onPhotoRemove={removeCategorizedPhoto}
+                      uploadStatus={uploadStatus.ACEITE_POST || "idle"}
+                      uploadProgress={uploadProgress.ACEITE_POST || 0}
+                      multiple={true}
+                    />
                   </div>
                 </div>
               </div>
@@ -3699,6 +3664,18 @@ function FillReport() {
                       placeholder="0.0"
                     />
                   </div>
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <PhotoUploadSection
+                      category="TEMPERATURAS_POST"
+                      label="Fotos Temperaturas Post-Mantenimiento"
+                      photos={photosByCategory.TEMPERATURAS_POST}
+                      onPhotoAdd={handleCategorizedPhotoChange}
+                      onPhotoRemove={removeCategorizedPhoto}
+                      uploadStatus={uploadStatus.TEMPERATURAS_POST || "idle"}
+                      uploadProgress={uploadProgress.TEMPERATURAS_POST || 0}
+                      multiple={true}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -3750,6 +3727,18 @@ function FillReport() {
                       placeholder="0.00"
                     />
                   </div>
+                  <div className="md:col-span-2">
+                    <PhotoUploadSection
+                      category="PRESIONES_POST"
+                      label="Fotos Manómetros / Presiones Post-Mantenimiento"
+                      photos={photosByCategory.PRESIONES_POST}
+                      onPhotoAdd={handleCategorizedPhotoChange}
+                      onPhotoRemove={removeCategorizedPhoto}
+                      uploadStatus={uploadStatus.PRESIONES_POST || "idle"}
+                      uploadProgress={uploadProgress.PRESIONES_POST || 0}
+                      multiple={true}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -3777,68 +3766,21 @@ function FillReport() {
                 </div>
               </div>
 
-              {/* SECCIÓN 7: Evidencias Fotográficas */}
+              {/* SECCIÓN 7: Otras Evidencias Fotográficas */}
               <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <h2 className="text-white bg-orange-600 px-4 py-2 rounded font-bold mb-4">
-                  EVIDENCIAS FOTOGRÁFICAS - POST-MANTENIMIENTO
+                  OTRAS EVIDENCIAS - POST-MANTENIMIENTO
                 </h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  Sube fotos de evidencia para cada mantenimiento realizado. Los
-                  campos de fotos se habilitarán automáticamente según los
-                  mantenimientos marcados como realizados.
-                </p>
-                <div className="space-y-4">
-                  {maintenanceData.mantenimientos.map(
-                    (item, index) =>
-                      item.realizado && (
-                        <div
-                          key={index}
-                          className="p-4 border-2 border-orange-200 rounded-lg bg-orange-50"
-                        >
-                          <h3 className="font-bold text-orange-900 mb-3">
-                            📸 Evidencias: {item.nombre}
-                          </h3>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Subir Fotos (múltiples permitidas)
-                            </label>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              onChange={(e) =>
-                                handleMaintenanceEvidencePhoto(e, index)
-                              }
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                            />
-                            {maintenanceData.evidenciasFotos[
-                              index.toString()
-                            ] &&
-                              maintenanceData.evidenciasFotos[index.toString()]
-                                .length > 0 && (
-                                <div className="mt-2 text-sm text-green-600">
-                                  ✓{" "}
-                                  {
-                                    maintenanceData.evidenciasFotos[
-                                      index.toString()
-                                    ].length
-                                  }{" "}
-                                  foto(s) agregada(s)
-                                </div>
-                              )}
-                          </div>
-                        </div>
-                      ),
-                  )}
-                  {maintenanceData.mantenimientos.filter((m) => m.realizado)
-                    .length === 0 && (
-                    <p className="text-center text-gray-500 py-8">
-                      No hay mantenimientos realizados. Marca los mantenimientos
-                      realizados en la sección MANTENIMIENTO para habilitar los
-                      campos de evidencia fotográfica.
-                    </p>
-                  )}
-                </div>
+                <PhotoUploadSection
+                  category="OTROS_POST"
+                  label="Otras Fotos de Evidencia Post-Mantenimiento"
+                  photos={photosByCategory.OTROS_POST}
+                  onPhotoAdd={handleCategorizedPhotoChange}
+                  onPhotoRemove={removeCategorizedPhoto}
+                  uploadStatus={uploadStatus.OTROS_POST || "idle"}
+                  uploadProgress={uploadProgress.OTROS_POST || 0}
+                  multiple={true}
+                />
               </div>
 
             </div>
