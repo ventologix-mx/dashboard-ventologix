@@ -148,13 +148,22 @@ def save_pre_mantenimiento(data: PreMantenimientoRequest):
 
         if existing:
             # Update existing record
-            set_clause = ", ".join([f"`{k}` = %s" for k in fields])
-            query = f"""
-                UPDATE reportes_pre_mantenimiento
-                SET {set_clause}, `fecha_actualizacion` = NOW()
-                WHERE folio = %s
-            """
-            values.append(data.folio)
+            if fields:
+                set_clause = ", ".join([f"`{k}` = %s" for k in fields])
+                query = f"""
+                    UPDATE reportes_pre_mantenimiento
+                    SET {set_clause}, `fecha_actualizacion` = NOW()
+                    WHERE folio = %s
+                """
+                values.append(data.folio)
+            else:
+                # If no fields to update, just update the timestamp
+                query = """
+                    UPDATE reportes_pre_mantenimiento
+                    SET `fecha_actualizacion` = NOW()
+                    WHERE folio = %s
+                """
+                values = [data.folio]
             cursor.execute(query, values)
         else:
             # Insert new record
@@ -331,13 +340,22 @@ def save_post_mantenimiento(data: PostMantenimientoRequest):
 
         if existing:
             # Update existing record
-            set_clause = ", ".join([f"`{k}` = %s" for k in fields])
-            query = f"""
-                UPDATE reportes_post_mantenimiento
-                SET {set_clause}, `fecha_actualizacion` = NOW()
-                WHERE folio = %s
-            """
-            values.append(data.folio)
+            if fields:
+                set_clause = ", ".join([f"`{k}` = %s" for k in fields])
+                query = f"""
+                    UPDATE reportes_post_mantenimiento
+                    SET {set_clause}, `fecha_actualizacion` = NOW()
+                    WHERE folio = %s
+                """
+                values.append(data.folio)
+            else:
+                # If no fields to update, just update the timestamp
+                query = """
+                    UPDATE reportes_post_mantenimiento
+                    SET `fecha_actualizacion` = NOW()
+                    WHERE folio = %s
+                """
+                values = [data.folio]
             cursor.execute(query, values)
         else:
             # Insert new record
