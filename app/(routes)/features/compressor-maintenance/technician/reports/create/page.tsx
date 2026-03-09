@@ -21,25 +21,17 @@ import { PhotoUploadSection } from "@/components/PhotoUploadSection";
 interface MaintenanceItem {
   nombre: string;
   realizado: boolean;
+  id_mantenimiento?: number;
+  frecuencia_horas?: number;
 }
 
-const defaultMaintenanceItems: MaintenanceItem[] = [
-  { nombre: "Cambio de aceite", realizado: false },
-  { nombre: "Cambio de filtro de aceite", realizado: false },
-  { nombre: "Cambio de filtro de aire", realizado: false },
-  { nombre: "Cambio de separador de aceite", realizado: false },
-  { nombre: "Revisión de válvula de admisión", realizado: false },
-  { nombre: "Revisión de válvula de descarga", realizado: false },
-  { nombre: "Limpieza de radiador", realizado: false },
-  { nombre: "Revisión de bandas/correas", realizado: false },
-  { nombre: "Revisión de fugas de aire", realizado: false },
-  { nombre: "Revisión de fugas de aceite", realizado: false },
-  { nombre: "Revisión de conexiones eléctricas", realizado: false },
-  { nombre: "Revisión de presostato", realizado: false },
-  { nombre: "Revisión de manómetros", realizado: false },
-  { nombre: "Lubricación general", realizado: false },
-  { nombre: "Limpieza general del equipo", realizado: false },
-];
+interface MaintenanceType {
+  id_mantenimiento: number;
+  nombre_tipo: string;
+  frecuencia?: number;
+  frecuencia_horas?: number;
+  tipo_compresor: string;
+}
 
 function FillReport() {
   const { isAuthenticated, isLoading } = useAuth0();
@@ -100,10 +92,53 @@ function FillReport() {
   });
 
   const [maintenanceData, setMaintenanceData] = useState({
-    mantenimientos: defaultMaintenanceItems,
+    mantenimientos: [] as MaintenanceItem[],
     comentarios_generales: "",
     comentario_cliente: "",
   });
+
+  const [maintenanceTypesLoaded, setMaintenanceTypesLoaded] = useState(false);
+
+  // Load maintenance types from database based on compressor type
+  const loadMaintenanceTypes = useCallback(
+    async (compressorType: string) => {
+      if (!compressorType || maintenanceTypesLoaded) return;
+
+      try {
+        console.log(`📋 Loading maintenance types for: ${compressorType}`);
+        const response = await fetch(
+          `${URL_API}/web/maintenance/types?tipo=${compressorType}`,
+        );
+
+        if (!response.ok) {
+          console.error("Error fetching maintenance types");
+          return;
+        }
+
+        const data = await response.json();
+        const types: MaintenanceType[] = data.maintenance_types || [];
+
+        console.log(`✅ Loaded ${types.length} maintenance types:`, types);
+
+        // Convert to MaintenanceItem format
+        const items: MaintenanceItem[] = types.map((type) => ({
+          nombre: type.nombre_tipo,
+          realizado: false,
+          id_mantenimiento: type.id_mantenimiento,
+          frecuencia_horas: type.frecuencia_horas || type.frecuencia || 2000,
+        }));
+
+        setMaintenanceData((prev) => ({
+          ...prev,
+          mantenimientos: items,
+        }));
+        setMaintenanceTypesLoaded(true);
+      } catch (error) {
+        console.error("Error loading maintenance types:", error);
+      }
+    },
+    [maintenanceTypesLoaded],
+  );
 
   const [formData, setFormData] = useState<ReportFormData>({
     reportDate: new Date().toISOString().split("T")[0],
@@ -273,8 +308,36 @@ function FillReport() {
     }
   };
 
-  const loadMaintenanceData = async (folio: string) => {
+  const loadMaintenanceData = async (
+    folio: string,
+    compressorType?: string,
+  ) => {
     try {
+      // First, ensure we have maintenance types loaded
+      if (compressorType) {
+        const typesResponse = await fetch(
+          `${URL_API}/web/maintenance/types?tipo=${compressorType}`,
+        );
+        if (typesResponse.ok) {
+          const typesData = await typesResponse.json();
+          const types: MaintenanceType[] = typesData.maintenance_types || [];
+
+          // Update maintenance items with types from DB
+          const items: MaintenanceItem[] = types.map((type) => ({
+            nombre: type.nombre_tipo,
+            realizado: false,
+            id_mantenimiento: type.id_mantenimiento,
+            frecuencia_horas: type.frecuencia_horas || type.frecuencia || 2000,
+          }));
+
+          setMaintenanceData((prev) => ({
+            ...prev,
+            mantenimientos: items,
+          }));
+        }
+      }
+
+      // Then load saved maintenance data for this folio
       const response = await fetch(`${URL_API}/reporte_mantenimiento/${folio}`);
       const result = await response.json();
 
@@ -282,41 +345,46 @@ function FillReport() {
         const savedData = result.data;
         console.log("✅ Loaded maintenance data:", savedData);
 
-        // Map database fields back to maintenance items
-        const updatedMantenimientos = defaultMaintenanceItems.map((item) => {
-          const itemFieldMap: { [key: string]: string } = {
-            "Cambio de aceite": "cambio_aceite",
-            "Cambio de filtro de aceite": "cambio_filtro_aceite",
-            "Cambio de filtro de aire": "cambio_filtro_aire",
-            "Cambio de separador de aceite": "cambio_separador_aceite",
-            "Revisión de válvula de admisión": "revision_valvula_admision",
-            "Revisión de válvula de descarga": "revision_valvula_descarga",
-            "Limpieza de radiador": "limpieza_radiador",
-            "Revisión de bandas/correas": "revision_bandas_correas",
-            "Revisión de fugas de aire": "revision_fugas_aire",
-            "Revisión de fugas de aceite": "revision_fugas_aceite",
-            "Revisión de conexiones eléctricas":
-              "revision_conexiones_electricas",
-            "Revisión de presostato": "revision_presostato",
-            "Revisión de manómetros": "revision_manometros",
-            "Lubricación general": "lubricacion_general",
-            "Limpieza general del equipo": "limpieza_general",
-          };
-
-          const dbFieldName = itemFieldMap[item.nombre];
-          const dbValue = savedData[dbFieldName];
-
-          return {
-            nombre: item.nombre,
-            realizado: dbValue === "Sí",
-          };
+        // Get all keys that have "Sí" value (completed maintenance items)
+        const completedItems = new Set<string>();
+        Object.entries(savedData).forEach(([key, value]) => {
+          if (value === "Sí") {
+            completedItems.add(key);
+          }
         });
 
-        setMaintenanceData({
-          mantenimientos: updatedMantenimientos,
+        // Update the current maintenance items based on saved data
+        setMaintenanceData((prev) => ({
+          ...prev,
+          mantenimientos: prev.mantenimientos.map((item) => {
+            // Check if this item was marked as completed in the saved data
+            // The saved data uses snake_case field names based on item names
+            const snakeCaseName = item.nombre
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "") // Remove accents
+              .replace(/[^a-z0-9\s]/g, "") // Remove special chars
+              .replace(/\s+/g, "_"); // Replace spaces with underscores
+
+            const wasCompleted = Object.keys(savedData).some((key) => {
+              const normalizedKey = key.toLowerCase();
+              return (
+                savedData[key] === "Sí" &&
+                (normalizedKey.includes(snakeCaseName.substring(0, 10)) ||
+                  item.nombre
+                    .toLowerCase()
+                    .includes(key.replace(/_/g, " ").substring(0, 10)))
+              );
+            });
+
+            return {
+              ...item,
+              realizado: wasCompleted,
+            };
+          }),
           comentarios_generales: savedData.comentarios_generales || "",
           comentario_cliente: savedData.comentario_cliente || "",
-        });
+        }));
 
         // Show maintenance section if data exists
         setShowMaintenanceSection(true);
@@ -339,6 +407,8 @@ function FillReport() {
         .then(async (result) => {
           if (result.data && result.data.length > 0) {
             const orden = result.data[0];
+            const compressorType = orden.tipo || "tornillo";
+
             setFormData((prev) => ({
               ...prev,
               folio: orden.folio,
@@ -348,7 +418,7 @@ function FillReport() {
               compressorAlias: orden.alias_compresor || "",
               serialNumber: orden.numero_serie || "",
               equipmentHp: orden.hp?.toString() || "",
-              compressorType: orden.tipo || "",
+              compressorType: compressorType,
               brand: orden.marca || "",
               yearManufactured: orden.anio?.toString() || "",
               diagnosticType: orden.tipo_visita || "",
@@ -360,11 +430,14 @@ function FillReport() {
               reportUrl: orden.reporte_url || "",
             }));
 
+            // Load maintenance types from database for this compressor type
+            await loadMaintenanceTypes(compressorType);
+
             // Load previously saved pre-maintenance data
             await loadPreMaintenanceData(orden.folio);
 
-            // Load previously saved maintenance data
-            await loadMaintenanceData(orden.folio);
+            // Load previously saved maintenance data (uses the loaded types)
+            await loadMaintenanceData(orden.folio, compressorType);
 
             // Mark as loaded so we don't re-fetch on re-renders
             dataLoadedRef.current = folio;
@@ -739,7 +812,9 @@ function FillReport() {
       console.log("📋 Photo categories status:");
       Object.entries(photosByCategory).forEach(([category, files]) => {
         const alreadyUploaded = uploadedPhotosByCategory[category];
-        console.log(`  ${category}: ${files.length} photo(s)${alreadyUploaded ? ' (already uploaded)' : ''}`);
+        console.log(
+          `  ${category}: ${files.length} photo(s)${alreadyUploaded ? " (already uploaded)" : ""}`,
+        );
       });
 
       const results: Record<string, unknown> = {};
@@ -774,8 +849,11 @@ function FillReport() {
             console.log(`✅ ${category} upload successful`);
 
             // Mark this category as uploaded and clear the files to prevent re-upload
-            setUploadedPhotosByCategory(prev => ({ ...prev, [category]: true }));
-            setPhotosByCategory(prev => ({ ...prev, [category]: [] }));
+            setUploadedPhotosByCategory((prev) => ({
+              ...prev,
+              [category]: true,
+            }));
+            setPhotosByCategory((prev) => ({ ...prev, [category]: [] }));
           } else {
             totalFailed += files.length;
             console.error(`❌ Failed to upload ${category}:`, result.error);
@@ -784,7 +862,9 @@ function FillReport() {
       }
 
       if (!hasPhotos) {
-        console.log("ℹ️ No new photos to upload (all categories empty or already uploaded)");
+        console.log(
+          "ℹ️ No new photos to upload (all categories empty or already uploaded)",
+        );
         return { success: true, results: {} };
       }
 
@@ -1004,7 +1084,6 @@ function FillReport() {
     setMaintenanceData({ ...maintenanceData, [field]: value });
   };
 
-
   // Function to update semaforo when maintenance is completed
   const updateMaintenanceSemaforo = async (
     formData: ReportFormData,
@@ -1012,7 +1091,7 @@ function FillReport() {
       mantenimientos: MaintenanceItem[];
       comentarios_generales: string;
       comentario_cliente: string;
-    }
+    },
   ) => {
     try {
       // Step 1: Get compressor data
@@ -1040,11 +1119,14 @@ function FillReport() {
             comp.alias === compressorAlias ||
             comp.Alias === compressorAlias ||
             comp.linea === compressorAlias ||
-            comp.Linea === compressorAlias
+            comp.Linea === compressorAlias,
         );
 
         if (matchingCompressor) {
-          idCompresor = matchingCompressor.id_compresor || parseInt(matchingCompressor.id) || null;
+          idCompresor =
+            matchingCompressor.id_compresor ||
+            parseInt(matchingCompressor.id) ||
+            null;
         }
       }
 
@@ -1053,11 +1135,13 @@ function FillReport() {
         return;
       }
 
-      console.log(`🔍 Found compressor ID: ${idCompresor} for alias: ${compressorAlias}`);
+      console.log(
+        `🔍 Found compressor ID: ${idCompresor} for alias: ${compressorAlias}`,
+      );
 
       // Step 3: Get all maintenance records for this compressor
       const maintenanceListResponse = await fetch(
-        `${URL_API}/web/maintenance/list?numero_cliente=${numeroCliente}`
+        `${URL_API}/web/maintenance/list?numero_cliente=${numeroCliente}`,
       );
 
       if (!maintenanceListResponse.ok) {
@@ -1070,14 +1154,14 @@ function FillReport() {
 
       // Filter to get only this compressor's maintenance records
       const compressorMaintenances = maintenanceRecords.filter(
-        (record: any) => record.id_compresor === idCompresor
+        (record: any) => record.id_compresor === idCompresor,
       );
 
       console.log("🔍 Found maintenance records:", compressorMaintenances);
 
       // Step 4: Get available maintenance types for this compressor type
       const maintenanceTypesResponse = await fetch(
-        `${URL_API}/web/maintenance/types?tipo=${compressorType}`
+        `${URL_API}/web/maintenance/types?tipo=${compressorType}`,
       );
 
       if (!maintenanceTypesResponse.ok) {
@@ -1090,54 +1174,55 @@ function FillReport() {
 
       console.log("🔍 Available maintenance types:", maintenanceTypes);
 
-      // Step 5: Map maintenance item names to maintenance types
-      const maintenanceNameToIdMap: { [key: string]: string } = {
-        "Cambio de aceite": "Cambio de aceite",
-        "Cambio de filtro de aceite": "Cambio de filtro de aceite",
-        "Cambio de filtro de aire": "Cambio de filtro de aire",
-        "Cambio de separador de aceite": "Cambio de separador de aceite",
-        "Revisión de válvula de admisión": "Revisión de válvula de admisión",
-        "Revisión de válvula de descarga": "Revisión de válvula de descarga",
-        "Limpieza de radiador": "Limpieza de radiador",
-        "Revisión de bandas/correas": "Revisión de bandas/correas",
-        "Revisión de fugas de aire": "Revisión de fugas de aire",
-        "Revisión de fugas de aceite": "Revisión de fugas de aceite",
-        "Revisión de conexiones eléctricas": "Revisión de conexiones eléctricas",
-        "Revisión de presostato": "Revisión de presostato",
-        "Revisión de manómetros": "Revisión de manómetros",
-        "Lubricación general": "Lubricación general",
-        "Limpieza general del equipo": "Limpieza general del equipo",
-      };
-
-      // Step 6: Update or create maintenance records for each completed maintenance
+      // Step 5: Update or create maintenance records for each completed maintenance
+      // Since the form now loads items directly from the DB, names match exactly
       const today = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
       const completedMaintenances = maintenanceData.mantenimientos.filter(
-        (item) => item.realizado
+        (item) => item.realizado,
       );
 
-      console.log(`✅ Processing ${completedMaintenances.length} completed maintenance items`);
+      console.log(
+        `✅ Processing ${completedMaintenances.length} completed maintenance items`,
+      );
 
       for (const completedItem of completedMaintenances) {
-        const maintenanceTypeName = maintenanceNameToIdMap[completedItem.nombre];
+        // Use id_mantenimiento directly if available, otherwise find by name
+        let matchingType: MaintenanceType | undefined;
 
-        // Find the matching maintenance type
-        const matchingType = maintenanceTypes.find(
-          (type: any) => type.nombre_tipo === maintenanceTypeName
-        );
+        if (completedItem.id_mantenimiento) {
+          matchingType = maintenanceTypes.find(
+            (type: MaintenanceType) =>
+              type.id_mantenimiento === completedItem.id_mantenimiento,
+          );
+        }
 
         if (!matchingType) {
-          console.warn(`⚠️ No maintenance type found for: ${maintenanceTypeName}`);
+          // Fallback: find by name (case-insensitive, trimmed)
+          matchingType = maintenanceTypes.find(
+            (type: MaintenanceType) =>
+              type.nombre_tipo?.trim().toLowerCase() ===
+              completedItem.nombre.trim().toLowerCase(),
+          );
+        }
+
+        if (!matchingType) {
+          console.warn(
+            `⚠️ No maintenance type found in DB for: ${completedItem.nombre}`,
+          );
           continue;
         }
 
         // Find the matching maintenance record
         const matchingRecord = compressorMaintenances.find(
-          (record: any) => record.id_mantenimiento === matchingType.id_mantenimiento
+          (record: any) =>
+            record.id_mantenimiento === matchingType!.id_mantenimiento,
         );
 
         if (matchingRecord) {
           // UPDATE existing maintenance record
-          console.log(`🔄 Updating maintenance: ${maintenanceTypeName} (ID: ${matchingRecord.id})`);
+          console.log(
+            `🔄 Updating maintenance: ${completedItem.nombre} (ID: ${matchingRecord.id})`,
+          );
 
           const updateResponse = await fetch(
             `${URL_API}/web/maintenance/${matchingRecord.id}`,
@@ -1151,54 +1236,67 @@ function FillReport() {
                 ultimo_mantenimiento: today,
                 horas_acumuladas: 0,
                 activo: matchingRecord.activo ?? true,
-                observaciones: matchingRecord.observaciones || `Actualizado desde reporte técnico - ${formData.folio}`,
-                editado_por: "Técnico Ventologix (Auto-actualizado desde reporte)",
+                observaciones:
+                  matchingRecord.observaciones ||
+                  `Actualizado desde reporte técnico - ${formData.folio}`,
+                editado_por:
+                  "Técnico Ventologix (Auto-actualizado desde reporte)",
               }),
-            }
+            },
           );
 
           if (updateResponse.ok) {
-            console.log(`✅ Updated semaforo for: ${maintenanceTypeName}`);
+            console.log(`✅ Updated semaforo for: ${completedItem.nombre}`);
           } else {
             const errorData = await updateResponse.json();
-            console.error(`❌ Error updating ${maintenanceTypeName}:`, errorData);
+            console.error(
+              `❌ Error updating ${completedItem.nombre}:`,
+              errorData,
+            );
           }
         } else {
           // CREATE new maintenance record
-          console.log(`➕ Creating new maintenance record: ${maintenanceTypeName}`);
+          console.log(
+            `➕ Creating new maintenance record: ${completedItem.nombre}`,
+          );
 
           const userDataStr = sessionStorage.getItem("userData");
           const currentUserName = userDataStr
             ? JSON.parse(userDataStr)?.name || "Técnico Ventologix"
             : "Técnico Ventologix";
 
-          const createResponse = await fetch(
-            `${URL_API}/web/maintenance/add`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                id_compresor: idCompresor,
-                id_mantenimiento: matchingType.id_mantenimiento,
-                frecuencia_horas: matchingType.frecuencia || 2000,
-                ultimo_mantenimiento: today,
-                activo: true,
-                observaciones: `Creado desde reporte técnico - ${formData.folio}`,
-                costo: 0,
-                creado_por: currentUserName,
-                fecha_creacion: today,
-              }),
-            }
-          );
+          const createResponse = await fetch(`${URL_API}/web/maintenance/add`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              id_compresor: idCompresor,
+              id_mantenimiento: matchingType.id_mantenimiento,
+              frecuencia_horas:
+                completedItem.frecuencia_horas ||
+                matchingType.frecuencia ||
+                2000,
+              ultimo_mantenimiento: today,
+              activo: true,
+              observaciones: `Creado desde reporte técnico - ${formData.folio}`,
+              costo: 0,
+              creado_por: currentUserName,
+              fecha_creacion: today,
+            }),
+          });
 
           if (createResponse.ok) {
             const createResult = await createResponse.json();
-            console.log(`✅ Created new maintenance record for: ${maintenanceTypeName} (ID: ${createResult.id})`);
+            console.log(
+              `✅ Created new maintenance record for: ${completedItem.nombre} (ID: ${createResult.id})`,
+            );
           } else {
             const errorData = await createResponse.json();
-            console.error(`❌ Error creating ${maintenanceTypeName}:`, errorData);
+            console.error(
+              `❌ Error creating ${completedItem.nombre}:`,
+              errorData,
+            );
           }
         }
       }
@@ -1279,7 +1377,6 @@ function FillReport() {
           "comentario_cliente",
           maintenanceData.comentario_cliente,
         );
-
       }
 
       // Send to backend API
@@ -1349,7 +1446,9 @@ function FillReport() {
 
               // 🔄 Update semaforo: Update ultimo_mantenimiento for completed maintenance items
               try {
-                console.log("🚦 Updating semaforo for completed maintenance items...");
+                console.log(
+                  "🚦 Updating semaforo for completed maintenance items...",
+                );
                 await updateMaintenanceSemaforo(formData, maintenanceData);
               } catch (semaforoError) {
                 console.error("⚠️ Error updating semaforo:", semaforoError);
@@ -1959,8 +2058,12 @@ function FillReport() {
                       photos={photosByCategory.CONDICIONES_AMBIENTALES}
                       onPhotoAdd={handleCategorizedPhotoChange}
                       onPhotoRemove={removeCategorizedPhoto}
-                      uploadStatus={uploadStatus.CONDICIONES_AMBIENTALES || "idle"}
-                      uploadProgress={uploadProgress.CONDICIONES_AMBIENTALES || 0}
+                      uploadStatus={
+                        uploadStatus.CONDICIONES_AMBIENTALES || "idle"
+                      }
+                      uploadProgress={
+                        uploadProgress.CONDICIONES_AMBIENTALES || 0
+                      }
                       multiple={true}
                     />
                   </div>
@@ -3288,7 +3391,9 @@ function FillReport() {
                   COMPARATIVA PRE vs POST MANTENIMIENTO
                 </h2>
                 <p className="text-sm text-gray-500 mb-4">
-                  Esta tabla compara las mediciones tomadas antes y después del mantenimiento. Los valores post-mantenimiento se actualizan conforme se completan los campos.
+                  Esta tabla compara las mediciones tomadas antes y después del
+                  mantenimiento. Los valores post-mantenimiento se actualizan
+                  conforme se completan los campos.
                 </p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
@@ -3307,26 +3412,106 @@ function FillReport() {
                     </thead>
                     <tbody>
                       {[
-                        { label: "Display Enciende", pre: formData.displayPowers, post: formData.displayPowersFinal },
-                        { label: "Horas Totales", pre: formData.generalHours, post: formData.generalHoursFinal },
-                        { label: "Horas en Carga", pre: formData.loadHours, post: formData.loadHoursFinal },
-                        { label: "Horas en Descarga", pre: formData.unloadHours, post: formData.unloadHoursFinal },
-                        { label: "Voltaje Alimentación (V)", pre: formData.supplyVoltage, post: formData.supplyVoltageFinal },
-                        { label: "Amperaje Motor en Carga (A)", pre: formData.mainMotorAmperage, post: formData.mainMotorAmperageFinal },
-                        { label: "Amperaje Ventilador (A)", pre: formData.fanAmperage, post: formData.fanAmperageFinal },
-                        { label: "Fugas de Aceite", pre: formData.oilLeaks, post: formData.oilLeaksFinal },
-                        { label: "Aceite Oscuro/Degradado", pre: formData.aceiteOscuro, post: formData.aceiteOscuroFinal },
-                        { label: "Temp. Ambiente (°C)", pre: formData.airIntakeTemp, post: formData.airIntakeTempFinal },
-                        { label: "Temp. Compresión Display (°C)", pre: formData.compressionTempDisplay, post: formData.compressionTempDisplayFinal },
-                        { label: "Temp. Compresión Laser (°C)", pre: formData.compressionTempLaser, post: formData.compressionTempLaserFinal },
-                        { label: "Temp. Separador Aceite (°C)", pre: formData.finalCompressionTemp, post: formData.finalCompressionTempFinal },
-                        { label: "Temp. Interna Cuarto (°C)", pre: formData.internalTemp, post: formData.internalTempFinal },
-                        { label: "Delta T Enfriador Aceite (°C)", pre: formData.deltaTAceite, post: formData.deltaTAceiteFinal },
-                        { label: "Temp. Motor Eléctrico (°C)", pre: formData.tempMotor, post: formData.tempMotorFinal },
-                        { label: "Presión Carga (PSI)", pre: formData.loadPressure, post: formData.loadPressureFinal },
-                        { label: "Presión Descarga (PSI)", pre: formData.unloadPressure, post: formData.unloadPressureFinal },
-                        { label: "Delta P Separador (PSI)", pre: formData.deltaPSeparador, post: formData.deltaPSeparadorFinal },
-                        { label: "Fugas de Aire", pre: formData.airLeaks, post: formData.airLeaksFinal },
+                        {
+                          label: "Display Enciende",
+                          pre: formData.displayPowers,
+                          post: formData.displayPowersFinal,
+                        },
+                        {
+                          label: "Horas Totales",
+                          pre: formData.generalHours,
+                          post: formData.generalHoursFinal,
+                        },
+                        {
+                          label: "Horas en Carga",
+                          pre: formData.loadHours,
+                          post: formData.loadHoursFinal,
+                        },
+                        {
+                          label: "Horas en Descarga",
+                          pre: formData.unloadHours,
+                          post: formData.unloadHoursFinal,
+                        },
+                        {
+                          label: "Voltaje Alimentación (V)",
+                          pre: formData.supplyVoltage,
+                          post: formData.supplyVoltageFinal,
+                        },
+                        {
+                          label: "Amperaje Motor en Carga (A)",
+                          pre: formData.mainMotorAmperage,
+                          post: formData.mainMotorAmperageFinal,
+                        },
+                        {
+                          label: "Amperaje Ventilador (A)",
+                          pre: formData.fanAmperage,
+                          post: formData.fanAmperageFinal,
+                        },
+                        {
+                          label: "Fugas de Aceite",
+                          pre: formData.oilLeaks,
+                          post: formData.oilLeaksFinal,
+                        },
+                        {
+                          label: "Aceite Oscuro/Degradado",
+                          pre: formData.aceiteOscuro,
+                          post: formData.aceiteOscuroFinal,
+                        },
+                        {
+                          label: "Temp. Ambiente (°C)",
+                          pre: formData.airIntakeTemp,
+                          post: formData.airIntakeTempFinal,
+                        },
+                        {
+                          label: "Temp. Compresión Display (°C)",
+                          pre: formData.compressionTempDisplay,
+                          post: formData.compressionTempDisplayFinal,
+                        },
+                        {
+                          label: "Temp. Compresión Laser (°C)",
+                          pre: formData.compressionTempLaser,
+                          post: formData.compressionTempLaserFinal,
+                        },
+                        {
+                          label: "Temp. Separador Aceite (°C)",
+                          pre: formData.finalCompressionTemp,
+                          post: formData.finalCompressionTempFinal,
+                        },
+                        {
+                          label: "Temp. Interna Cuarto (°C)",
+                          pre: formData.internalTemp,
+                          post: formData.internalTempFinal,
+                        },
+                        {
+                          label: "Delta T Enfriador Aceite (°C)",
+                          pre: formData.deltaTAceite,
+                          post: formData.deltaTAceiteFinal,
+                        },
+                        {
+                          label: "Temp. Motor Eléctrico (°C)",
+                          pre: formData.tempMotor,
+                          post: formData.tempMotorFinal,
+                        },
+                        {
+                          label: "Presión Carga (PSI)",
+                          pre: formData.loadPressure,
+                          post: formData.loadPressureFinal,
+                        },
+                        {
+                          label: "Presión Descarga (PSI)",
+                          pre: formData.unloadPressure,
+                          post: formData.unloadPressureFinal,
+                        },
+                        {
+                          label: "Delta P Separador (PSI)",
+                          pre: formData.deltaPSeparador,
+                          post: formData.deltaPSeparadorFinal,
+                        },
+                        {
+                          label: "Fugas de Aire",
+                          pre: formData.airLeaks,
+                          post: formData.airLeaksFinal,
+                        },
                       ].map((row, idx) => {
                         const preVal = row.pre || "—";
                         const postVal = row.post || "—";
@@ -3335,16 +3520,26 @@ function FillReport() {
                         const improved =
                           hasPost &&
                           ((row.post === "No" && row.pre === "Sí") ||
-                            (row.post === "Sí" && row.pre === "No" &&
+                            (row.post === "Sí" &&
+                              row.pre === "No" &&
                               ["Display Enciende"].includes(row.label)));
                         const worsened =
                           hasPost &&
                           row.post === "Sí" &&
                           row.pre === "No" &&
-                          ["Fugas de Aceite", "Aceite Oscuro/Degradado", "Fugas de Aire"].includes(row.label);
+                          [
+                            "Fugas de Aceite",
+                            "Aceite Oscuro/Degradado",
+                            "Fugas de Aire",
+                          ].includes(row.label);
 
                         return (
-                          <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                          <tr
+                            key={idx}
+                            className={
+                              idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            }
+                          >
                             <td className="border border-gray-300 px-3 py-2 font-medium text-gray-700">
                               {row.label}
                             </td>
@@ -3356,10 +3551,10 @@ function FillReport() {
                                 worsened
                                   ? "bg-red-100 text-red-700"
                                   : improved
-                                  ? "bg-green-100 text-green-700"
-                                  : changed
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : "text-gray-700"
+                                    ? "bg-green-100 text-green-700"
+                                    : changed
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : "text-gray-700"
                               }`}
                             >
                               {postVal}
@@ -3372,13 +3567,16 @@ function FillReport() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-600">
                   <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded bg-green-200 inline-block"></span> Mejorado
+                    <span className="w-3 h-3 rounded bg-green-200 inline-block"></span>{" "}
+                    Mejorado
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded bg-yellow-200 inline-block"></span> Cambió
+                    <span className="w-3 h-3 rounded bg-yellow-200 inline-block"></span>{" "}
+                    Cambió
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded bg-red-200 inline-block"></span> Empeoró
+                    <span className="w-3 h-3 rounded bg-red-200 inline-block"></span>{" "}
+                    Empeoró
                   </span>
                 </div>
               </div>
@@ -3782,7 +3980,6 @@ function FillReport() {
                   multiple={true}
                 />
               </div>
-
             </div>
           )}
 
@@ -3907,23 +4104,41 @@ function FillReport() {
                     onClick={async () => {
                       if (!formData.folio) return;
                       const confirmed = confirm(
-                        "¿Está seguro de enviar el reporte a firma? Se guardará y se redirigirá a la vista de firma del técnico."
+                        "¿Está seguro de enviar el reporte a firma? Se guardará y se redirigirá a la vista de firma del técnico.",
                       );
                       if (!confirmed) return;
 
                       setIsSaving(true);
                       try {
-                        console.log("🏁 Iniciando proceso de enviar a firma para folio:", formData.folio);
+                        console.log(
+                          "🏁 Iniciando proceso de enviar a firma para folio:",
+                          formData.folio,
+                        );
 
                         // Save post-maintenance data
-                        console.log("💾 Guardando datos de post-mantenimiento...");
+                        console.log(
+                          "💾 Guardando datos de post-mantenimiento...",
+                        );
                         const postResult = await savePostMaintenanceData();
-                        console.log("📥 Resultado post-mantenimiento:", postResult);
+                        console.log(
+                          "📥 Resultado post-mantenimiento:",
+                          postResult,
+                        );
 
                         if (!postResult?.success) {
-                          const errorMsg = postResult?.error || "Error desconocido al guardar post-mantenimiento";
-                          console.error("❌ Error en post-mantenimiento:", errorMsg);
-                          alert("❌ Error al guardar post-mantenimiento: " + errorMsg + "\n\nEl reporte NO se ha perdido. Está guardado como borrador con folio: " + formData.folio);
+                          const errorMsg =
+                            postResult?.error ||
+                            "Error desconocido al guardar post-mantenimiento";
+                          console.error(
+                            "❌ Error en post-mantenimiento:",
+                            errorMsg,
+                          );
+                          alert(
+                            "❌ Error al guardar post-mantenimiento: " +
+                              errorMsg +
+                              "\n\nEl reporte NO se ha perdido. Está guardado como borrador con folio: " +
+                              formData.folio,
+                          );
                           return;
                         }
 
@@ -3931,21 +4146,45 @@ function FillReport() {
                         console.log("📋 Actualizando estado a por_firmar...");
                         const statusResponse = await fetch(
                           `${URL_API}/ordenes/${formData.folio}/estado?estado=por_firmar`,
-                          { method: "PATCH" }
+                          { method: "PATCH" },
                         );
 
                         if (statusResponse.ok) {
-                          router.push(`/features/compressor-maintenance/reports/view?folio=${formData.folio}`);
+                          router.push(
+                            `/features/compressor-maintenance/reports/view?folio=${formData.folio}`,
+                          );
                         } else {
                           const statusResult = await statusResponse.json();
-                          const errorMsg = statusResult?.error || statusResult?.detail || "Error desconocido";
-                          console.error("❌ Error al actualizar estado:", errorMsg);
-                          alert("❌ Error al actualizar el estado: " + errorMsg + "\n\nLos datos están guardados con folio: " + formData.folio);
+                          const errorMsg =
+                            statusResult?.error ||
+                            statusResult?.detail ||
+                            "Error desconocido";
+                          console.error(
+                            "❌ Error al actualizar estado:",
+                            errorMsg,
+                          );
+                          alert(
+                            "❌ Error al actualizar el estado: " +
+                              errorMsg +
+                              "\n\nLos datos están guardados con folio: " +
+                              formData.folio,
+                          );
                         }
                       } catch (err) {
-                        const errorMsg = err instanceof Error ? err.message : String(err);
-                        console.error("❌ Excepción al enviar a firma:", errorMsg, err);
-                        alert("❌ Error crítico:\n" + errorMsg + "\n\nFolio: " + formData.folio + "\n\nEl reporte está guardado como borrador.");
+                        const errorMsg =
+                          err instanceof Error ? err.message : String(err);
+                        console.error(
+                          "❌ Excepción al enviar a firma:",
+                          errorMsg,
+                          err,
+                        );
+                        alert(
+                          "❌ Error crítico:\n" +
+                            errorMsg +
+                            "\n\nFolio: " +
+                            formData.folio +
+                            "\n\nEl reporte está guardado como borrador.",
+                        );
                       } finally {
                         setIsSaving(false);
                       }
