@@ -102,7 +102,7 @@ class MantenimientoItem(BaseModel):
 class ReporteMantenimiento(BaseModel):
     folio: str
     
-    # Items de mantenimiento (Sí/No)
+    # Items de mantenimiento (Sí/No) - Legacy fields for backwards compatibility
     cambio_aceite: Optional[Literal["Sí", "No"]] = None
     cambio_filtro_aceite: Optional[Literal["Sí", "No"]] = None
     cambio_filtro_aire: Optional[Literal["Sí", "No"]] = None
@@ -118,6 +118,9 @@ class ReporteMantenimiento(BaseModel):
     revision_manometros: Optional[Literal["Sí", "No"]] = None
     lubricacion_general: Optional[Literal["Sí", "No"]] = None
     limpieza_general: Optional[Literal["Sí", "No"]] = None
+    
+    # Dynamic maintenance items as JSON string
+    mantenimientos_json: Optional[str] = None
     
     # Comentarios
     comentarios_generales: Optional[str] = None

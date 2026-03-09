@@ -58,7 +58,8 @@ async def crear_reporte_mantenimiento(data: ReporteMantenimiento):
                     lubricacion_general = %s,
                     limpieza_general = %s,
                     comentarios_generales = %s,
-                    comentario_cliente = %s
+                    comentario_cliente = %s,
+                    mantenimientos_json = %s
                 WHERE folio = %s
             """
             values = [
@@ -79,6 +80,7 @@ async def crear_reporte_mantenimiento(data: ReporteMantenimiento):
                 data.limpieza_general,
                 data.comentarios_generales,
                 data.comentario_cliente,
+                data.mantenimientos_json,
                 data.folio,
             ]
             cursor.execute(update_query, values)
@@ -120,8 +122,9 @@ async def crear_reporte_mantenimiento(data: ReporteMantenimiento):
                     lubricacion_general,
                     limpieza_general,
                     comentarios_generales,
-                    comentario_cliente
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    comentario_cliente,
+                    mantenimientos_json
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             values = [
                 data.folio,
@@ -142,6 +145,7 @@ async def crear_reporte_mantenimiento(data: ReporteMantenimiento):
                 data.limpieza_general,
                 data.comentarios_generales,
                 data.comentario_cliente,
+                data.mantenimientos_json,
             ]
             cursor.execute(insert_query, values)
 
