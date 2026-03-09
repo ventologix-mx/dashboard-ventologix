@@ -345,46 +345,69 @@ function FillReport() {
         const savedData = result.data;
         console.log("✅ Loaded maintenance data:", savedData);
 
-        // Get all keys that have "Sí" value (completed maintenance items)
-        const completedItems = new Set<string>();
-        Object.entries(savedData).forEach(([key, value]) => {
-          if (value === "Sí") {
-            completedItems.add(key);
-          }
-        });
+        // Try to load from JSON field first (new format)
+        if (savedData.mantenimientos_json) {
+          try {
+            const jsonItems = JSON.parse(savedData.mantenimientos_json);
+            console.log("📋 Loaded maintenance items from JSON:", jsonItems);
 
-        // Update the current maintenance items based on saved data
-        setMaintenanceData((prev) => ({
-          ...prev,
-          mantenimientos: prev.mantenimientos.map((item) => {
-            // Check if this item was marked as completed in the saved data
-            // The saved data uses snake_case field names based on item names
-            const snakeCaseName = item.nombre
-              .toLowerCase()
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "") // Remove accents
-              .replace(/[^a-z0-9\s]/g, "") // Remove special chars
-              .replace(/\s+/g, "_"); // Replace spaces with underscores
+            setMaintenanceData((prev) => {
+              // Merge JSON data with current types from DB
+              const updatedItems = prev.mantenimientos.map((item) => {
+                const savedItem = jsonItems.find(
+                  (j: MaintenanceItem) =>
+                    j.id_mantenimiento === item.id_mantenimiento ||
+                    j.nombre === item.nombre,
+                );
+                return {
+                  ...item,
+                  realizado: savedItem?.realizado || false,
+                };
+              });
 
-            const wasCompleted = Object.keys(savedData).some((key) => {
-              const normalizedKey = key.toLowerCase();
-              return (
-                savedData[key] === "Sí" &&
-                (normalizedKey.includes(snakeCaseName.substring(0, 10)) ||
-                  item.nombre
-                    .toLowerCase()
-                    .includes(key.replace(/_/g, " ").substring(0, 10)))
-              );
+              return {
+                ...prev,
+                mantenimientos: updatedItems,
+                comentarios_generales: savedData.comentarios_generales || "",
+                comentario_cliente: savedData.comentario_cliente || "",
+              };
             });
+          } catch (parseError) {
+            console.error("Error parsing mantenimientos_json:", parseError);
+          }
+        } else {
+          // Fallback: Legacy format (for old reports)
+          setMaintenanceData((prev) => ({
+            ...prev,
+            mantenimientos: prev.mantenimientos.map((item) => {
+              // Try to find matching field in legacy format
+              const snakeCaseName = item.nombre
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9\s]/g, "")
+                .replace(/\s+/g, "_");
 
-            return {
-              ...item,
-              realizado: wasCompleted,
-            };
-          }),
-          comentarios_generales: savedData.comentarios_generales || "",
-          comentario_cliente: savedData.comentario_cliente || "",
-        }));
+              const wasCompleted = Object.keys(savedData).some((key) => {
+                const normalizedKey = key.toLowerCase();
+                return (
+                  savedData[key] === "Sí" &&
+                  (normalizedKey.includes(snakeCaseName.substring(0, 10)) ||
+                    item.nombre
+                      .toLowerCase()
+                      .includes(key.replace(/_/g, " ").substring(0, 10)))
+                );
+              });
+
+              return {
+                ...item,
+                realizado: wasCompleted,
+              };
+            }),
+            comentarios_generales: savedData.comentarios_generales || "",
+            comentario_cliente: savedData.comentario_cliente || "",
+          }));
+        }
 
         // Show maintenance section if data exists
         setShowMaintenanceSection(true);
@@ -900,14 +923,23 @@ function FillReport() {
           if (showMaintenanceSection && formData.folio) {
             console.log("💾 Saving maintenance data to database...");
 
-            // Convert maintenance items to database format (Sí/No)
-            const mantenimientoDbData: Record<string, string> = {
+            // Convert maintenance items to database format
+            const mantenimientoDbData: Record<string, string | null> = {
               folio: formData.folio,
               comentarios_generales: maintenanceData.comentarios_generales,
               comentario_cliente: maintenanceData.comentario_cliente,
+              // Store all maintenance items as JSON for dynamic types
+              mantenimientos_json: JSON.stringify(
+                maintenanceData.mantenimientos.map((item) => ({
+                  nombre: item.nombre,
+                  realizado: item.realizado,
+                  id_mantenimiento: item.id_mantenimiento,
+                  frecuencia_horas: item.frecuencia_horas,
+                })),
+              ),
             };
 
-            // Map maintenance items to database fields
+            // Legacy field mapping for backwards compatibility
             const itemFieldMap: { [key: string]: string } = {
               "Cambio de aceite": "cambio_aceite",
               "Cambio de filtro de aceite": "cambio_filtro_aceite",
@@ -927,7 +959,7 @@ function FillReport() {
               "Limpieza general del equipo": "limpieza_general",
             };
 
-            // Add maintenance items to the data object
+            // Add maintenance items to legacy fields (for old reports)
             maintenanceData.mantenimientos.forEach((item) => {
               const dbField = itemFieldMap[item.nombre];
               if (dbField) {
