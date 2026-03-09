@@ -63,11 +63,11 @@ def upload_photo(bucket, file_content: bytes, blob_name: str, mime_type: str = '
         raise
 
 
-def upload_maintenance_photos(client_name: str, folio: str, photos_by_category: dict) -> dict:
+def upload_maintenance_photos(client_name: str, folio: str, photos_by_category: dict, parent_folder: str = "mantenimiento") -> dict:
     """
     Upload maintenance report photos organized by category to GCS.
 
-    Path structure: mantenimiento/{year}/{month}/{client_name}/{folio}/{category}/{filename}
+    Path structure: {parent_folder}/{year}/{month}/{client_name}/{folio}/{category}/{filename}
     Files are named descriptively, e.g.: Foto_Presion1.jpg, Foto_Display1.jpg
 
     Args:
@@ -79,6 +79,7 @@ def upload_maintenance_photos(client_name: str, folio: str, photos_by_category: 
                 "CONDICIONES_AMBIENTALES": [...],
                 ...
             }
+        parent_folder: Parent folder in GCS (default: "mantenimiento", use "Secadoras" for dryers)
 
     Returns:
         Dictionary with uploaded file URLs by category
@@ -134,8 +135,8 @@ def upload_maintenance_photos(client_name: str, folio: str, photos_by_category: 
         month = now.strftime("%m")
         clean_client = client_name.strip().replace('/', '-')
         clean_folio = folio.strip().replace('/', '-')
-        # Path: mantenimiento/{year}/{month}/{client_name}/{folio}/{category}/{filename}
-        base_prefix = f"mantenimiento/{year}/{month}/{clean_client}/{clean_folio}"
+        # Path: {parent_folder}/{year}/{month}/{client_name}/{folio}/{category}/{filename}
+        base_prefix = f"{parent_folder}/{year}/{month}/{clean_client}/{clean_folio}"
 
         uploaded_files = {}
 

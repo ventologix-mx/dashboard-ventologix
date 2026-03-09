@@ -227,7 +227,8 @@ async def upload_photos(
     folio: str = Form(...),
     client_name: str = Form(...),
     category: str = Form(...),
-    files: List[UploadFile] = File(...)
+    files: List[UploadFile] = File(...),
+    parent_folder: str = Form("mantenimiento")
 ):
     """
     Upload photos to Google Drive organized by client/folio/category.
@@ -237,6 +238,7 @@ async def upload_photos(
         client_name: Client name
         category: Photo category (ACEITE, CONDICIONES_AMBIENTALES, etc.)
         files: List of image files to upload
+        parent_folder: Parent folder in GCS (default: "mantenimiento", use "Secadoras" for dryers)
     
     Returns:
         JSON with upload results and file IDs
@@ -246,6 +248,7 @@ async def upload_photos(
         print(f"  - Folio: {folio}")
         print(f"  - Client: {client_name}")
         print(f"  - Category: {category}")
+        print(f"  - Parent folder: {parent_folder}")
         print(f"  - Files count: {len(files)}")
         
         # Prepare photos for upload
@@ -271,7 +274,8 @@ async def upload_photos(
         result = upload_maintenance_photos(
             client_name=client_name,
             folio=folio,
-            photos_by_category=photos_by_category
+            photos_by_category=photos_by_category,
+            parent_folder=parent_folder
         )
         
         print(f"📋 [DEBUG] Upload result: {result}")
