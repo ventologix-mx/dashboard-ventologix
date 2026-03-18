@@ -249,30 +249,7 @@ const Home = () => {
             </button>
           </div>
 
-          {/* Generar Reporte Secadora */}
-          <div className="group relative">
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-200 to-purple-300 rounded-2xl opacity-30 group-hover:opacity-40 blur-lg transition-all duration-300"></div>
-            <button
-              className="relative w-full h-full min-h-[280px] bg-white hover:bg-purple-50 border-2 border-purple-200 hover:border-purple-300 rounded-2xl p-10 transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center justify-center"
-              onClick={() =>
-                router.push(
-                  "/features/compressor-maintenance/technician/reports/create-dryer",
-                )
-              }
-            >
-              <div className="text-center">
-                <div className="text-5xl mb-5 transform group-hover:scale-110 transition-transform duration-300">
-                  📝
-                </div>
-                <h3 className="text-2xl font-bold text-purple-600 mb-3">
-                  Crear Reporte de Secadora
-                </h3>
-                <p className="text-gray-700 text-sm">
-                  Genera los reportes de secadora
-                </p>
-              </div>
-            </button>
-          </div>
+          {/* Generar Reporte Secadora - hidden */}
         </div>
       </div>
     </div>
