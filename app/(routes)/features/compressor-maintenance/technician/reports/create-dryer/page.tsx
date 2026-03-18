@@ -1,407 +1,244 @@
 "use client";
 
-import React, { useState, Suspense, useEffect, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { URL_API } from "@/lib/global";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import BackButton from "@/components/BackButton";
-import Image from "next/image";
-import { URL_API } from "@/lib/global";
-import { usePhotoUpload } from "@/hooks/usePhotoUpload";
 import { PhotoUploadSection } from "@/components/PhotoUploadSection";
+import Image from "next/image";
 
-// ── Interfaces ──────────────────────────────────────────────────────────────
+interface ClientData {
+  numero_cliente: string | number;
+  nombre_cliente: string;
+  RFC: string;
+  direccion: string;
+  champion: string;
+}
 
 interface DryerFormData {
-  // Order / Client info (read-only, loaded from orden)
   folio: string;
-  clientId: string;
-  clientName: string;
-  area: string;
-  tecnico: string;
-  aliasEquipo: string;
-  diagnosticType: string;
-  maintenanceType: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  orderStatus: string;
-  creationDate: string;
-
-  // Equipment data
-  marca: string;
+  cliente: string;
+  numero_cliente: string;
+  rfc: string;
+  direccion: string;
+  ingeniero_obra: string;
+  ingeniero_ventologix: string;
+  fecha: string;
+  equipo: string;
   modelo: string;
-  numeroSerie: string;
-  arrancador: string;
-  tipoCompresor: string;
-  hpCompresor: string;
-  tipoRefrigerante: string;
+  no_serie: string;
+  ubicacion: string;
+  horometro: string;
   voltaje: string;
-  marcaMotor: string;
-  hpMotorCondensador: string;
-
-  // Cycles & Times
-  puntoRocio: string;
-  ciclos: string;
-  tiempo: string;
-  preFiltro: string;
-  postFiltro: string;
-
-  // Pressures & Readings
-  manometroTorre1: string;
-  manometroTorre2: string;
-  presionDescarga: string;
-  presionSuccion: string;
-  tempAireEntrada: string;
-  tempAireSalida: string;
   amperaje: string;
-  amperajeCondensador: string;
-  voltajeCompresor: string;
-  voltajeMotorCondensador: string;
-
-  // Element Functioning
-  cargaGas: string;
-  fugasTuberias: string;
-  balerosMotorCondensador: string;
-  indicadorPresion: string;
-  valvulaExpansion: string;
-  presostatos: string;
-  termoswitch: string;
-  instalacionElectrica: string;
-  nivelAceite: string;
-  valvulaSolenoide: string;
-  panelCondensador: string;
-  indicadorTemperatura: string;
-  filtros: string;
-  valvulasDrenCondensados: string;
-
-  // Observations
+  ciclo_refrigeracion: string;
+  ciclo_drenado: string;
+  tiempo_drenado: string;
+  tiempo_ciclo: string;
+  presion_alta: string;
+  presion_baja: string;
+  temp_entrada_aire: string;
+  temp_salida_aire: string;
+  punto_rocio: string;
+  drenaje_condensado: string;
+  intercambiador_calor: string;
+  evaporadora: string;
+  valvula_expansion: string;
+  filtro_deshidratador: string;
+  condensador: string;
+  ventiladores_condensador: string;
+  motor_ventilador: string;
+  compresor_refrigeracion: string;
+  cableado_electrico: string;
+  contactores_relevadores: string;
+  tarjeta_control: string;
+  drenaje_automatico: string;
+  sensor_punto_rocio: string;
+  estado_general: string;
   observaciones: string;
 }
 
-const defaultFormData: DryerFormData = {
-  folio: "",
-  clientId: "",
-  clientName: "",
-  area: "",
-  tecnico: "",
-  aliasEquipo: "",
-  diagnosticType: "",
-  maintenanceType: "",
-  scheduledDate: "",
-  scheduledTime: "",
-  orderStatus: "",
-  creationDate: "",
-
-  marca: "",
-  modelo: "",
-  numeroSerie: "",
-  arrancador: "",
-  tipoCompresor: "",
-  hpCompresor: "",
-  tipoRefrigerante: "",
-  voltaje: "",
-  marcaMotor: "",
-  hpMotorCondensador: "",
-
-  puntoRocio: "",
-  ciclos: "",
-  tiempo: "",
-  preFiltro: "",
-  postFiltro: "",
-
-  manometroTorre1: "",
-  manometroTorre2: "",
-  presionDescarga: "",
-  presionSuccion: "",
-  tempAireEntrada: "",
-  tempAireSalida: "",
-  amperaje: "",
-  amperajeCondensador: "",
-  voltajeCompresor: "",
-  voltajeMotorCondensador: "",
-
-  cargaGas: "",
-  fugasTuberias: "",
-  balerosMotorCondensador: "",
-  indicadorPresion: "",
-  valvulaExpansion: "",
-  presostatos: "",
-  termoswitch: "",
-  instalacionElectrica: "",
-  nivelAceite: "",
-  valvulaSolenoide: "",
-  panelCondensador: "",
-  indicadorTemperatura: "",
-  filtros: "",
-  valvulasDrenCondensados: "",
-
-  observaciones: "",
-};
-
-// Status options for element functioning fields
 const statusOptions = [
   { value: "", label: "-- Seleccionar --" },
-  { value: "Correcto", label: "Correcto" },
-  { value: "Incorrecto", label: "Incorrecto" },
-  { value: "N/A", label: "N/A" },
+  { value: "Buen estado", label: "Buen estado" },
+  { value: "Regular", label: "Regular" },
+  { value: "Requiere atención", label: "Requiere atención" },
+  { value: "No aplica", label: "No aplica" },
 ];
 
-// ── Component ───────────────────────────────────────────────────────────────
-
-function CreateDryerReport() {
-  const { isAuthenticated, isLoading } = useAuth0();
-  const router = useRouter();
+function DryerReportForm() {
+  const { getAccessTokenSilently, isAuthenticated, isLoading } = useAuth0();
   const searchParams = useSearchParams();
-  const { uploadPhotos, uploadStatus, uploadProgress } = usePhotoUpload();
-  const dataLoadedRef = useRef<string | null>(null);
+  const folioParam = searchParams.get("folio");
+  const router = useRouter();
 
-  const [formData, setFormData] = useState<DryerFormData>(defaultFormData);
+  const [loading, setLoading] = useState(false);
+  const [searchingClient, setSearchingClient] = useState(false);
+  const [clientNumber, setClientNumber] = useState("");
+  const [allClients, setAllClients] = useState<ClientData[]>([]);
+  const [savedFolio, setSavedFolio] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [currentStep, setCurrentStep] = useState(1); // 1=equipo, 2=lecturas, 3=funcionamiento
 
+  // Photo categories for dryer
   const [photosByCategory, setPhotosByCategory] = useState<{
     [category: string]: File[];
   }>({
-    EQUIPO: [],
-    PRESIONES: [],
-    MANTENIMIENTO: [],
+    PLACAS_EQUIPO: [],
+    DISPLAY_HORAS: [],
+    COMPONENTES: [],
+    REFRIGERACION: [],
     OTROS: [],
   });
 
-  const [uploadedPhotosByCategory, setUploadedPhotosByCategory] = useState<{
-    [category: string]: boolean;
-  }>({
-    EQUIPO: false,
-    PRESIONES: false,
-    MANTENIMIENTO: false,
-    OTROS: false,
+  const [uploadStatus, setUploadStatus] = useState<{
+    [key: string]: "idle" | "uploading" | "success" | "error";
+  }>({});
+  const [uploadProgress, setUploadProgress] = useState<{
+    [key: string]: number;
+  }>({});
+
+  const [formData, setFormData] = useState<DryerFormData>({
+    folio: "",
+    cliente: "",
+    numero_cliente: "",
+    rfc: "",
+    direccion: "",
+    ingeniero_obra: "",
+    ingeniero_ventologix: "",
+    fecha: new Date().toISOString().split("T")[0],
+    equipo: "",
+    modelo: "",
+    no_serie: "",
+    ubicacion: "",
+    horometro: "",
+    voltaje: "",
+    amperaje: "",
+    ciclo_refrigeracion: "",
+    ciclo_drenado: "",
+    tiempo_drenado: "",
+    tiempo_ciclo: "",
+    presion_alta: "",
+    presion_baja: "",
+    temp_entrada_aire: "",
+    temp_salida_aire: "",
+    punto_rocio: "",
+    drenaje_condensado: "",
+    intercambiador_calor: "",
+    evaporadora: "",
+    valvula_expansion: "",
+    filtro_deshidratador: "",
+    condensador: "",
+    ventiladores_condensador: "",
+    motor_ventilador: "",
+    compresor_refrigeracion: "",
+    cableado_electrico: "",
+    contactores_relevadores: "",
+    tarjeta_control: "",
+    drenaje_automatico: "",
+    sensor_punto_rocio: "",
+    estado_general: "",
+    observaciones: "",
   });
 
-  // ── Load order data from folio ──────────────────────────────────────────
-
-  useEffect(() => {
-    const folio = searchParams.get("folio");
-    if (!folio || dataLoadedRef.current === folio) return;
-
-    fetch(`${URL_API}/ordenes?folio=${folio}`)
-      .then(async (res) => {
-        const result = await res.json();
-        if (result.data && result.data.length > 0) {
-          const orden = result.data[0];
-          setFormData((prev) => ({
-            ...prev,
-            folio: orden.folio,
-            clientId: orden.id_cliente?.toString() || "",
-            clientName: orden.nombre_cliente || "",
-            area: orden.area || "",
-            tecnico: orden.tecnico || "",
-            aliasEquipo: orden.alias_compresor || orden.alias_equipo || "",
-            diagnosticType: orden.tipo_visita || "",
-            maintenanceType: orden.tipo_mantenimiento || "",
-            scheduledDate: orden.fecha_programada || "",
-            scheduledTime: orden.hora_programada || "",
-            orderStatus: orden.estado || "",
-            creationDate: orden.fecha_creacion || "",
-            // Equipment info from order
-            marca: orden.marca || "",
-            modelo: orden.modelo || "",
-            numeroSerie: orden.numero_serie || "",
-          }));
-
-          // Load previously saved dryer report data
-          await loadDryerReportData(orden.folio);
-          dataLoadedRef.current = folio;
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching orden:", error);
-        alert("Error al cargar la orden de servicio");
-      });
-  }, [searchParams]);
-
-  const loadDryerReportData = async (folio: string) => {
-    try {
-      const res = await fetch(`${URL_API}/reporte_secadora/${folio}`);
-      if (!res.ok) return;
-      const result = await res.json();
-      if (!result.data) return;
-
-      const d = result.data;
-      setFormData((prev) => ({
-        ...prev,
-        // Equipment
-        marca: d.marca || prev.marca,
-        modelo: d.modelo || prev.modelo,
-        numeroSerie: d.numero_serie || prev.numeroSerie,
-        arrancador: d.arrancador || "",
-        tipoCompresor: d.tipo_compresor || "",
-        hpCompresor: d.hp_compresor || "",
-        tipoRefrigerante: d.tipo_refrigerante || "",
-        voltaje: d.voltaje?.toString() || "",
-        marcaMotor: d.marca_motor || "",
-        hpMotorCondensador: d.hp_motor_condensador || "",
-        // Cycles
-        puntoRocio: d.punto_rocio || "",
-        ciclos: d.ciclos?.toString() || "",
-        tiempo: d.tiempo || "",
-        preFiltro: d.pre_filtro || "",
-        postFiltro: d.post_filtro || "",
-        // Pressures
-        manometroTorre1: d.manometro_torre_1?.toString() || "",
-        manometroTorre2: d.manometro_torre_2?.toString() || "",
-        presionDescarga: d.presion_descarga?.toString() || "",
-        presionSuccion: d.presion_succion?.toString() || "",
-        tempAireEntrada: d.temp_aire_entrada?.toString() || "",
-        tempAireSalida: d.temp_aire_salida?.toString() || "",
-        amperaje: d.amperaje?.toString() || "",
-        amperajeCondensador: d.amperaje_condensador?.toString() || "",
-        voltajeCompresor: d.voltaje_compresor?.toString() || "",
-        voltajeMotorCondensador: d.voltaje_motor_condensador?.toString() || "",
-        // Functioning
-        cargaGas: d.carga_gas || "",
-        fugasTuberias: d.fugas_tuberias || "",
-        balerosMotorCondensador: d.baleros_motor_condensador || "",
-        indicadorPresion: d.indicador_presion || "",
-        valvulaExpansion: d.valvula_expansion || "",
-        presostatos: d.presostatos || "",
-        termoswitch: d.termoswitch || "",
-        instalacionElectrica: d.instalacion_electrica || "",
-        nivelAceite: d.nivel_aceite || "",
-        valvulaSolenoide: d.valvula_solenoide || "",
-        panelCondensador: d.panel_condensador || "",
-        indicadorTemperatura: d.indicador_temperatura || "",
-        filtros: d.filtros || "",
-        valvulasDrenCondensados: d.valvulas_dren_condensados || "",
-        // Observations
-        observaciones: d.observaciones || "",
-      }));
-    } catch (err) {
-      console.error("Error loading dryer data:", err);
-    }
-  };
-
-  // ── Auto-save ───────────────────────────────────────────────────────────
-
-  const handleSaveDraft = useCallback(
-    async (showAlert: boolean = true) => {
-      if (!formData.folio) return;
-
-      try {
-        setIsSaving(true);
-
-        const payload = {
-          folio: formData.folio,
-          // Equipment
-          marca: formData.marca || undefined,
-          modelo: formData.modelo || undefined,
-          numero_serie: formData.numeroSerie || undefined,
-          arrancador: formData.arrancador || undefined,
-          tipo_compresor: formData.tipoCompresor || undefined,
-          hp_compresor: formData.hpCompresor || undefined,
-          tipo_refrigerante: formData.tipoRefrigerante || undefined,
-          voltaje: formData.voltaje ? parseFloat(formData.voltaje) : undefined,
-          marca_motor: formData.marcaMotor || undefined,
-          hp_motor_condensador: formData.hpMotorCondensador || undefined,
-          // Cycles
-          punto_rocio: formData.puntoRocio || undefined,
-          ciclos: formData.ciclos ? parseInt(formData.ciclos) : undefined,
-          tiempo: formData.tiempo || undefined,
-          pre_filtro: formData.preFiltro || undefined,
-          post_filtro: formData.postFiltro || undefined,
-          // Pressures
-          manometro_torre_1: formData.manometroTorre1 ? parseFloat(formData.manometroTorre1) : undefined,
-          manometro_torre_2: formData.manometroTorre2 ? parseFloat(formData.manometroTorre2) : undefined,
-          presion_descarga: formData.presionDescarga ? parseFloat(formData.presionDescarga) : undefined,
-          presion_succion: formData.presionSuccion ? parseFloat(formData.presionSuccion) : undefined,
-          temp_aire_entrada: formData.tempAireEntrada ? parseFloat(formData.tempAireEntrada) : undefined,
-          temp_aire_salida: formData.tempAireSalida ? parseFloat(formData.tempAireSalida) : undefined,
-          amperaje: formData.amperaje ? parseFloat(formData.amperaje) : undefined,
-          amperaje_condensador: formData.amperajeCondensador ? parseFloat(formData.amperajeCondensador) : undefined,
-          voltaje_compresor: formData.voltajeCompresor ? parseFloat(formData.voltajeCompresor) : undefined,
-          voltaje_motor_condensador: formData.voltajeMotorCondensador ? parseFloat(formData.voltajeMotorCondensador) : undefined,
-          // Functioning
-          carga_gas: formData.cargaGas || undefined,
-          fugas_tuberias: formData.fugasTuberias || undefined,
-          baleros_motor_condensador: formData.balerosMotorCondensador || undefined,
-          indicador_presion: formData.indicadorPresion || undefined,
-          valvula_expansion: formData.valvulaExpansion || undefined,
-          presostatos: formData.presostatos || undefined,
-          termoswitch: formData.termoswitch || undefined,
-          instalacion_electrica: formData.instalacionElectrica || undefined,
-          nivel_aceite: formData.nivelAceite || undefined,
-          valvula_solenoide: formData.valvulaSolenoide || undefined,
-          panel_condensador: formData.panelCondensador || undefined,
-          indicador_temperatura: formData.indicadorTemperatura || undefined,
-          filtros: formData.filtros || undefined,
-          valvulas_dren_condensados: formData.valvulasDrenCondensados || undefined,
-          // Observations
-          observaciones: formData.observaciones || undefined,
-        };
-
-        const res = await fetch(`${URL_API}/reporte_secadora/guardar`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const result = await res.json();
-
-        if (result.success) {
-          setLastSaved(new Date());
-          setHasUnsavedChanges(false);
-          if (showAlert) {
-            alert("Borrador guardado exitosamente");
-          }
-        } else if (showAlert) {
-          alert("Error al guardar: " + (result.error || "Error desconocido"));
-        }
-      } catch (err) {
-        console.error("Error saving draft:", err);
-        if (showAlert) {
-          alert("Error al guardar el borrador");
-        }
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [formData],
-  );
-
-  // Auto-save every 30 seconds
-  useEffect(() => {
-    if (!formData.folio || !hasUnsavedChanges) return;
-
-    const interval = setInterval(() => {
-      handleSaveDraft(false);
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [formData.folio, hasUnsavedChanges, handleSaveDraft]);
-
-  // Warn before leaving
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [hasUnsavedChanges]);
-
-  // ── Handlers ────────────────────────────────────────────────────────────
-
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    setHasUnsavedChanges(true);
   };
 
+  // Cargar lista de clientes
+  useEffect(() => {
+    const loadClients = async () => {
+      if (!isAuthenticated) return;
+      try {
+        const token = await getAccessTokenSilently();
+        const res = await fetch(`${URL_API}/clients/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const response = await res.json();
+          // API returns { data: clients[] }
+          const clientsArray = response.data || [];
+          console.log("Clientes cargados:", clientsArray.length);
+          setAllClients(clientsArray);
+        }
+      } catch (error) {
+        console.error("Error cargando clientes:", error);
+      }
+    };
+    loadClients();
+  }, [isAuthenticated, getAccessTokenSilently]);
+
+  // Cargar reporte existente
+  useEffect(() => {
+    const loadReport = async () => {
+      if (!folioParam || !isAuthenticated) return;
+      setLoading(true);
+      try {
+        const token = await getAccessTokenSilently();
+        const res = await fetch(`${URL_API}/reporte_secadora/${folioParam}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setFormData((prev) => ({ ...prev, ...data }));
+          setSavedFolio(folioParam);
+        }
+      } catch (error) {
+        console.error("Error cargando reporte:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadReport();
+  }, [folioParam, isAuthenticated, getAccessTokenSilently]);
+
+  // Búsqueda de cliente por número
+  const handleClientSearch = useCallback(() => {
+    if (!clientNumber.trim()) return;
+    setSearchingClient(true);
+
+    // Ensure allClients is an array
+    const clientsArray = Array.isArray(allClients) ? allClients : [];
+    console.log(
+      "Buscando cliente:",
+      clientNumber,
+      "en",
+      clientsArray.length,
+      "clientes",
+    );
+
+    const found = clientsArray.find(
+      (c) =>
+        String(c.numero_cliente || "").toLowerCase() ===
+        clientNumber.trim().toLowerCase(),
+    );
+    if (found) {
+      console.log("Cliente encontrado:", found);
+      setFormData((prev) => ({
+        ...prev,
+        numero_cliente: String(found.numero_cliente),
+        cliente: found.nombre_cliente || "",
+        rfc: found.RFC || "",
+        direccion: found.direccion || "",
+        ingeniero_obra: found.champion || "",
+      }));
+    } else {
+      console.log(
+        "No se encontró cliente. Números disponibles:",
+        clientsArray.slice(0, 5).map((c) => c.numero_cliente),
+      );
+      alert("Cliente no encontrado");
+    }
+    setSearchingClient(false);
+  }, [clientNumber, allClients]);
+
+  // Handle categorized photo uploads
   const handleCategorizedPhotoChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     category: string,
@@ -411,469 +248,861 @@ function CreateDryerReport() {
       const fileArray = Array.from(files);
       setPhotosByCategory((prev) => ({
         ...prev,
-        [category]: [...(prev[category] || []), ...fileArray],
+        [category]: [...prev[category], ...fileArray],
       }));
-      setHasUnsavedChanges(true);
     }
   };
 
+  // Remove photo from category
   const removeCategorizedPhoto = (category: string, index: number) => {
     setPhotosByCategory((prev) => ({
       ...prev,
       [category]: prev[category].filter((_, i) => i !== index),
     }));
-    setHasUnsavedChanges(true);
   };
 
-  // Upload all photos
-  const uploadAllPhotos = useCallback(async () => {
-    if (!formData.folio) return { success: false, error: "No folio" };
-
-    const clientName = formData.clientName || "Unknown";
-    let totalUploaded = 0;
-    let totalFailed = 0;
-
-    for (const [category, files] of Object.entries(photosByCategory)) {
-      if (uploadedPhotosByCategory[category] || files.length === 0) continue;
-
-      const result = await uploadPhotos(formData.folio, clientName, category, files);
-      if (result.success) {
-        totalUploaded += files.length;
-        setUploadedPhotosByCategory((prev) => ({ ...prev, [category]: true }));
-        setPhotosByCategory((prev) => ({ ...prev, [category]: [] }));
-      } else {
-        totalFailed += files.length;
-      }
-    }
-
-    if (totalFailed > 0) {
-      alert(`${totalUploaded} fotos subidas, ${totalFailed} fallaron`);
-    } else if (totalUploaded > 0) {
-      alert(`${totalUploaded} fotos subidas exitosamente`);
-    }
-
-    return { success: totalFailed === 0 };
-  }, [formData, photosByCategory, uploadedPhotosByCategory, uploadPhotos]);
-
-  // Submit and send to signature
-  const handleSubmitToSignature = async () => {
-    if (!formData.folio) return;
-
-    const confirmed = confirm(
-      "¿Está seguro de enviar el reporte a firma? Se guardará y se redirigirá a la vista de firma.",
-    );
-    if (!confirmed) return;
-
+  // Guardar reporte
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAuthenticated) return;
     setIsSaving(true);
     try {
-      // Save draft first
-      await handleSaveDraft(false);
+      const token = await getAccessTokenSilently();
+      const form = new FormData();
 
-      // Upload photos
-      const hasPhotos = Object.values(photosByCategory).some((f) => f.length > 0);
-      if (hasPhotos) {
-        await uploadAllPhotos();
-      }
+      Object.entries(formData).forEach(([key, value]) => {
+        form.append(key, value as string);
+      });
 
-      // Update order status to por_firmar
-      const statusRes = await fetch(
-        `${URL_API}/ordenes/${formData.folio}/estado?estado=por_firmar`,
-        { method: "PATCH" },
-      );
+      // Add all photos from categories
+      Object.entries(photosByCategory).forEach(([category, files]) => {
+        files.forEach((file) => {
+          form.append(`fotos_${category}`, file);
+        });
+      });
 
-      if (statusRes.ok) {
-        router.push(
-          `/features/compressor-maintenance/reports/view-dryer?folio=${formData.folio}`,
-        );
+      const res = await fetch(`${URL_API}/reporte_secadora/guardar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSavedFolio(data.folio || formData.folio);
+        alert("Reporte guardado exitosamente");
       } else {
-        const statusResult = await statusRes.json();
-        alert("Error al actualizar el estado: " + (statusResult?.error || "Error desconocido"));
+        throw new Error("Error al guardar");
       }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      alert("Error: " + errorMsg + "\n\nFolio: " + formData.folio);
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error al guardar el reporte");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // ── Auth guard ──────────────────────────────────────────────────────────
+  // Descargar PDF
+  const handleDownloadPdf = async () => {
+    const folio = savedFolio || formData.folio;
+    if (!folio) {
+      alert("Guarde el reporte primero");
+      return;
+    }
+    setLoading(true);
+    try {
+      const token = await getAccessTokenSilently();
+      const res = await fetch(`${URL_API}/reporte_secadora/pdf/${folio}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `reporte_secadora_${folio}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        throw new Error("Error descargando PDF");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error al descargar PDF");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (isLoading) {
+  if (isLoading || loading) {
     return <LoadingOverlay isVisible={true} message="Cargando..." />;
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">No autorizado. Por favor inicia sesión.</p>
-      </div>
-    );
+    router.push("/");
+    return null;
   }
 
-  // ── Render helpers ────────────────────────────────────────────────────
-
-  const InputField = ({
-    label,
-    name,
-    value,
-    type = "text",
-    placeholder = "",
-    suffix = "",
-  }: {
-    label: string;
-    name: string;
-    value: string;
-    type?: string;
-    placeholder?: string;
-    suffix?: string;
-  }) => (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label} {suffix && <span className="text-gray-400 text-xs">({suffix})</span>}
-      </label>
-      <input
-        type={type}
-        name={name}
-        value={value}
-        onChange={handleInputChange}
-        placeholder={placeholder}
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-      />
-    </div>
-  );
-
-  const SelectField = ({
-    label,
-    name,
-    value,
-    options,
-  }: {
-    label: string;
-    name: string;
-    value: string;
-    options: { value: string; label: string }[];
-  }) => (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label}
-      </label>
-      <select
-        name={name}
-        value={value}
-        onChange={handleInputChange}
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const SectionHeader = ({
-    title,
-    color,
-    step,
-  }: {
-    title: string;
-    color: string;
-    step?: number;
-  }) => (
-    <div className={`${color} text-white px-4 py-3 rounded-t-lg font-bold flex items-center gap-3`}>
-      {step && (
-        <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
-          {step}
-        </span>
-      )}
-      {title}
-    </div>
-  );
-
-  // ── Step indicator ────────────────────────────────────────────────────
-
-  const steps = [
-    { num: 1, label: "Datos del Equipo" },
-    { num: 2, label: "Lecturas y Presiones" },
-    { num: 3, label: "Funcionamiento y Observaciones" },
-  ];
-
-  // ── Main Render ───────────────────────────────────────────────────────
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-cyan-50/30 p-4 md:p-8">
-      <div className="no-print">
-        <BackButton />
-      </div>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <BackButton />
 
-      <div className="max-w-5xl mx-auto mt-4">
-        {/* Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-700 via-cyan-800 to-blue-900 text-white shadow-xl mb-6">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
-          </div>
-          <div className="relative p-6">
+      <div className="max-w-7xl mx-auto mt-4">
+        {/* Header Principal */}
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
+          <div className="bg-gradient-to-r from-blue-800 to-blue-900 text-white p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="w-14 h-14 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
+                <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center">
                   <Image
                     src="/Ventologix_05.png"
-                    alt="Logo"
-                    width={40}
-                    height={40}
+                    alt="Ventologix Logo"
+                    width={64}
+                    height={64}
                     style={{ width: "auto", height: "auto" }}
                   />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold">Reporte de Secadora</h1>
-                  <p className="text-cyan-200 text-sm">Mantenimiento Preventivo</p>
+                  <h1 className="text-3xl font-bold">VENTOLOGIX</h1>
+                  <p className="text-blue-200">
+                    Reporte de Mantenimiento - Secadora
+                  </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xs text-cyan-300 uppercase tracking-wider">Folio</p>
-                <p className="text-2xl font-bold">{formData.folio || "—"}</p>
+                <p className="text-xl font-bold">Folio</p>
+                <p className="text-2xl">{formData.folio || "Sin asignar"}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Step Indicator */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-          <div className="flex items-center justify-between">
-            {steps.map((step, i) => (
-              <React.Fragment key={step.num}>
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(step.num)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm font-medium ${
-                    currentStep === step.num
-                      ? "bg-cyan-100 text-cyan-800"
-                      : currentStep > step.num
-                        ? "text-emerald-600"
-                        : "text-gray-400"
-                  }`}
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                      currentStep === step.num
-                        ? "bg-cyan-600 text-white"
-                        : currentStep > step.num
-                          ? "bg-emerald-500 text-white"
-                          : "bg-gray-200 text-gray-500"
-                    }`}
-                  >
-                    {currentStep > step.num ? "✓" : step.num}
-                  </span>
-                  <span className="hidden md:inline">{step.label}</span>
-                </button>
-                {i < steps.length - 1 && (
-                  <div
-                    className={`flex-1 h-0.5 mx-2 ${
-                      currentStep > step.num ? "bg-emerald-300" : "bg-gray-200"
-                    }`}
-                  />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-          {lastSaved && (
-            <p className="text-xs text-gray-400 mt-2 text-right">
-              Guardado: {lastSaved.toLocaleTimeString("es-MX")}
-            </p>
-          )}
-        </div>
-
-        {/* Client & Order Info (always visible, read-only) */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-          <SectionHeader title="INFORMACIÓN GENERAL" color="bg-blue-800" />
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</label>
-                <p className="text-gray-900 font-semibold mt-1">{formData.clientName || "N/A"}</p>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Área</label>
-                <p className="text-gray-900 font-semibold mt-1">{formData.area || "N/A"}</p>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Técnico</label>
-                <p className="text-gray-900 font-semibold mt-1">{formData.tecnico || "N/A"}</p>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo de Visita</label>
-                <p className="text-gray-900 font-semibold mt-1">{formData.diagnosticType || "N/A"}</p>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Programada</label>
-                <p className="text-gray-900 font-semibold mt-1">{formData.scheduledDate || "N/A"}</p>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Equipo</label>
-                <p className="text-gray-900 font-semibold mt-1">{formData.aliasEquipo || "N/A"}</p>
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* SECCIÓN: Información del Cliente */}
+          <div
+            id="cliente-section"
+            className="bg-white rounded-lg shadow-lg overflow-hidden mb-6"
+          >
+            <div className="bg-gradient-to-r from-blue-700 to-blue-800 text-white p-4">
+              <h2 className="text-xl font-bold text-center">
+                INFORMACIÓN DEL CLIENTE
+              </h2>
             </div>
-          </div>
-        </div>
-
-        {/* ─── Step 1: Equipment Data ──────────────────────────────────── */}
-        {currentStep >= 1 && (
-          <div id="step-1" className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-            <SectionHeader title="DATOS DEL EQUIPO" color="bg-cyan-700" step={1} />
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                <InputField label="Marca" name="marca" value={formData.marca} placeholder="Ej: Hankison" />
-                <InputField label="Modelo" name="modelo" value={formData.modelo} placeholder="Ej: HES2000" />
-                <InputField label="Número de Serie" name="numeroSerie" value={formData.numeroSerie} />
-                <InputField label="Arrancador" name="arrancador" value={formData.arrancador} />
-                <InputField label="Tipo de Compresor" name="tipoCompresor" value={formData.tipoCompresor} />
-                <InputField label="HP de Compresor" name="hpCompresor" value={formData.hpCompresor} />
-                <InputField label="Tipo de Refrigerante" name="tipoRefrigerante" value={formData.tipoRefrigerante} placeholder="Ej: R-134a" />
-                <InputField label="Voltaje" name="voltaje" value={formData.voltaje} type="number" suffix="V" />
-                <InputField label="Marca de Motor" name="marcaMotor" value={formData.marcaMotor} />
-                <InputField label="HP Motor Condensador" name="hpMotorCondensador" value={formData.hpMotorCondensador} />
+              {/* Búsqueda de Cliente */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-bold text-gray-700 mb-3">
+                  Buscar Cliente por Número
+                </h3>
+                <div className="flex gap-4 items-end">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Número de Cliente
+                    </label>
+                    <input
+                      type="text"
+                      value={clientNumber}
+                      onChange={(e) => setClientNumber(e.target.value)}
+                      onKeyPress={(e) =>
+                        e.key === "Enter" &&
+                        (e.preventDefault(), handleClientSearch())
+                      }
+                      placeholder="Ingrese número de cliente"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClientSearch}
+                    disabled={searchingClient}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    {searchingClient ? "Buscando..." : "Buscar"}
+                  </button>
+                </div>
               </div>
-              <div className="mt-5">
-                <PhotoUploadSection
-                  category="EQUIPO"
-                  label="Fotos del Equipo / Placas"
-                  photos={photosByCategory.EQUIPO}
-                  onPhotoAdd={handleCategorizedPhotoChange}
-                  onPhotoRemove={removeCategorizedPhoto}
-                  uploadStatus={uploadStatus.EQUIPO || "idle"}
-                  uploadProgress={uploadProgress.EQUIPO || 0}
-                  multiple={true}
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cliente *
+                  </label>
+                  <input
+                    type="text"
+                    name="cliente"
+                    value={formData.cliente}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    RFC
+                  </label>
+                  <input
+                    type="text"
+                    name="rfc"
+                    value={formData.rfc}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Dirección
+                  </label>
+                  <input
+                    type="text"
+                    name="direccion"
+                    value={formData.direccion}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fecha *
+                  </label>
+                  <input
+                    type="date"
+                    name="fecha"
+                    value={formData.fecha}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
               </div>
             </div>
           </div>
-        )}
 
-        {/* ─── Step 2: Cycles, Pressures & Readings ────────────────────── */}
-        {currentStep >= 2 && (
-          <>
-            <div id="step-2" className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-              <SectionHeader title="CICLOS Y TIEMPOS" color="bg-violet-600" step={2} />
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  <InputField label="Punto de Rocío" name="puntoRocio" value={formData.puntoRocio} />
-                  <InputField label="Ciclos" name="ciclos" value={formData.ciclos} type="number" />
-                  <InputField label="Tiempo" name="tiempo" value={formData.tiempo} placeholder="Ej: 10 minutos" />
-                  <InputField label="Pre Filtro" name="preFiltro" value={formData.preFiltro} />
-                  <InputField label="Post Filtro" name="postFiltro" value={formData.postFiltro} />
+          {/* SECCIÓN: Datos del Equipo */}
+          <div
+            id="equipo-section"
+            className="bg-white rounded-lg shadow-lg overflow-hidden mb-6"
+          >
+            <div className="bg-gradient-to-r from-purple-700 to-purple-800 text-white p-4">
+              <h2 className="text-xl font-bold text-center">
+                DATOS DEL EQUIPO
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <PhotoUploadSection
+                    category="PLACAS_EQUIPO"
+                    label="Fotos Placas del Equipo"
+                    photos={photosByCategory.PLACAS_EQUIPO}
+                    onPhotoAdd={handleCategorizedPhotoChange}
+                    onPhotoRemove={removeCategorizedPhoto}
+                    uploadStatus={uploadStatus.PLACAS_EQUIPO || "idle"}
+                    uploadProgress={uploadProgress.PLACAS_EQUIPO || 0}
+                    multiple={true}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Equipo / Marca
+                  </label>
+                  <input
+                    type="text"
+                    name="equipo"
+                    value={formData.equipo}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Marca del equipo"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Modelo
+                  </label>
+                  <input
+                    type="text"
+                    name="modelo"
+                    value={formData.modelo}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Modelo"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    No. Serie
+                  </label>
+                  <input
+                    type="text"
+                    name="no_serie"
+                    value={formData.no_serie}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Número de serie"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ubicación
+                  </label>
+                  <input
+                    type="text"
+                    name="ubicacion"
+                    value={formData.ubicacion}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Ubicación del equipo"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Horómetro
+                  </label>
+                  <input
+                    type="text"
+                    name="horometro"
+                    value={formData.horometro}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Horas de operación"
+                  />
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-              <SectionHeader title="PRESIONES Y LECTURAS" color="bg-amber-600" />
-              <div className="p-6 space-y-6">
-                {/* Pressures */}
+          {/* SECCIÓN: Parámetros Eléctricos */}
+          <div
+            id="parametros-section"
+            className="bg-white rounded-lg shadow-lg overflow-hidden mb-6"
+          >
+            <div className="bg-gradient-to-r from-teal-700 to-teal-800 text-white p-4">
+              <h2 className="text-xl font-bold text-center">
+                PARÁMETROS ELÉCTRICOS
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Manómetros y Presiones
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                    <InputField label="Manómetro Torre 1" name="manometroTorre1" value={formData.manometroTorre1} type="number" suffix="psig" />
-                    <InputField label="Manómetro Torre 2" name="manometroTorre2" value={formData.manometroTorre2} type="number" suffix="psig" />
-                    <InputField label="Presión Descarga" name="presionDescarga" value={formData.presionDescarga} type="number" suffix="psig" />
-                    <InputField label="Presión Succión" name="presionSuccion" value={formData.presionSuccion} type="number" suffix="psig" />
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Voltaje (V)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="voltaje"
+                    value={formData.voltaje}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="0.0"
+                  />
                 </div>
-
-                {/* Temperatures */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Temperaturas
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <InputField label="Temperatura Aire Entrada" name="tempAireEntrada" value={formData.tempAireEntrada} type="number" suffix="°C" />
-                    <InputField label="Temperatura Aire Salida" name="tempAireSalida" value={formData.tempAireSalida} type="number" suffix="°C" />
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Amperaje (A)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="amperaje"
+                    value={formData.amperaje}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="0.0"
+                  />
                 </div>
+              </div>
+            </div>
+          </div>
 
-                {/* Electrical */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Lecturas Eléctricas
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                    <InputField label="Amperaje" name="amperaje" value={formData.amperaje} type="number" suffix="A" />
-                    <InputField label="Amperaje Condensador" name="amperajeCondensador" value={formData.amperajeCondensador} type="number" suffix="A" />
-                    <InputField label="Voltaje Compresor" name="voltajeCompresor" value={formData.voltajeCompresor} type="number" suffix="V" />
-                    <InputField label="Voltaje Motor Condensador" name="voltajeMotorCondensador" value={formData.voltajeMotorCondensador} type="number" suffix="V" />
-                  </div>
-                </div>
-
+          {/* SECCIÓN: Ciclos y Tiempos */}
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
+            <div className="bg-gradient-to-r from-teal-700 to-teal-800 text-white p-4">
+              <h2 className="text-xl font-bold text-center">
+                CICLOS Y TIEMPOS
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="md:col-span-2 mb-6">
                 <PhotoUploadSection
-                  category="PRESIONES"
-                  label="Fotos de Presiones / Indicadores / Manómetros"
-                  photos={photosByCategory.PRESIONES}
+                  category="DISPLAY_HORAS"
+                  label="Fotos Display / Horas de Trabajo"
+                  photos={photosByCategory.DISPLAY_HORAS}
                   onPhotoAdd={handleCategorizedPhotoChange}
                   onPhotoRemove={removeCategorizedPhoto}
-                  uploadStatus={uploadStatus.PRESIONES || "idle"}
-                  uploadProgress={uploadProgress.PRESIONES || 0}
+                  uploadStatus={uploadStatus.DISPLAY_HORAS || "idle"}
+                  uploadProgress={uploadProgress.DISPLAY_HORAS || 0}
                   multiple={true}
                 />
               </div>
-            </div>
-          </>
-        )}
-
-        {/* ─── Step 3: Element Functioning & Observations ──────────────── */}
-        {currentStep >= 3 && (
-          <>
-            <div id="step-3" className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-              <SectionHeader title="FUNCIONAMIENTO DE ELEMENTOS" color="bg-emerald-600" step={3} />
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  <SelectField label="Carga de Gas" name="cargaGas" value={formData.cargaGas} options={statusOptions} />
-                  <SelectField label="Fugas (Tuberías)" name="fugasTuberias" value={formData.fugasTuberias} options={statusOptions} />
-                  <SelectField label="Baleros Motor Condensador" name="balerosMotorCondensador" value={formData.balerosMotorCondensador} options={statusOptions} />
-                  <SelectField label="Indicador de Presión" name="indicadorPresion" value={formData.indicadorPresion} options={statusOptions} />
-                  <SelectField label="Válvula de Expansión" name="valvulaExpansion" value={formData.valvulaExpansion} options={statusOptions} />
-                  <SelectField label="Presostatos" name="presostatos" value={formData.presostatos} options={statusOptions} />
-                  <SelectField label="Termoswitch" name="termoswitch" value={formData.termoswitch} options={statusOptions} />
-                  <SelectField label="Instalación Eléctrica" name="instalacionElectrica" value={formData.instalacionElectrica} options={statusOptions} />
-                  <SelectField label="Nivel de Aceite" name="nivelAceite" value={formData.nivelAceite} options={statusOptions} />
-                  <SelectField label="Válvula Solenoide" name="valvulaSolenoide" value={formData.valvulaSolenoide} options={statusOptions} />
-                  <SelectField label="Panel de Condensador" name="panelCondensador" value={formData.panelCondensador} options={statusOptions} />
-                  <SelectField label="Indicador de Temperatura" name="indicadorTemperatura" value={formData.indicadorTemperatura} options={statusOptions} />
-                  <SelectField label="Filtros" name="filtros" value={formData.filtros} options={statusOptions} />
-                  <SelectField label="Válvulas Dren Condensados" name="valvulasDrenCondensados" value={formData.valvulasDrenCondensados} options={statusOptions} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ciclo de Refrigeración
+                  </label>
+                  <input
+                    type="text"
+                    name="ciclo_refrigeracion"
+                    value={formData.ciclo_refrigeracion}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Ingrese valor"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ciclo de Drenado
+                  </label>
+                  <input
+                    type="text"
+                    name="ciclo_drenado"
+                    value={formData.ciclo_drenado}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Ingrese valor"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tiempo de Drenado
+                  </label>
+                  <input
+                    type="text"
+                    name="tiempo_drenado"
+                    value={formData.tiempo_drenado}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Ingrese valor"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tiempo de Ciclo
+                  </label>
+                  <input
+                    type="text"
+                    name="tiempo_ciclo"
+                    value={formData.tiempo_ciclo}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Ingrese valor"
+                  />
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Observations */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-              <SectionHeader title="OBSERVACIONES" color="bg-gray-600" />
-              <div className="p-6">
-                <textarea
-                  name="observaciones"
-                  value={formData.observaciones}
-                  onChange={handleInputChange}
-                  rows={5}
-                  placeholder="Escriba las observaciones generales del mantenimiento de la secadora..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-y"
-                />
+          {/* SECCIÓN: Presiones y Lecturas */}
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
+            <div className="bg-gradient-to-r from-teal-700 to-teal-800 text-white p-4">
+              <h2 className="text-xl font-bold text-center">
+                PRESIONES Y LECTURAS
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Presión Alta (PSI)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="presion_alta"
+                    value={formData.presion_alta}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="0.0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Presión Baja (PSI)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="presion_baja"
+                    value={formData.presion_baja}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="0.0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Temp. Entrada Aire (°C)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="temp_entrada_aire"
+                    value={formData.temp_entrada_aire}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="0.0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Temp. Salida Aire (°C)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="temp_salida_aire"
+                    value={formData.temp_salida_aire}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="0.0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Punto de Rocío (°C)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="punto_rocio"
+                    value={formData.punto_rocio}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="0.0"
+                  />
+                </div>
               </div>
             </div>
+          </div>
 
-            {/* Photos - Maintenance & Others */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-              <SectionHeader title="EVIDENCIA FOTOGRÁFICA" color="bg-cyan-600" />
-              <div className="p-6 space-y-5">
+          {/* SECCIÓN: Estado de Componentes */}
+          <div
+            id="componentes-section"
+            className="bg-white rounded-lg shadow-lg overflow-hidden mb-6"
+          >
+            <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-4">
+              <h2 className="text-xl font-bold text-center">
+                ESTADO DE COMPONENTES
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="md:col-span-2 mb-6">
                 <PhotoUploadSection
-                  category="MANTENIMIENTO"
-                  label="Fotos del Mantenimiento Realizado"
-                  photos={photosByCategory.MANTENIMIENTO}
+                  category="COMPONENTES"
+                  label="Fotos de Componentes"
+                  photos={photosByCategory.COMPONENTES}
                   onPhotoAdd={handleCategorizedPhotoChange}
                   onPhotoRemove={removeCategorizedPhoto}
-                  uploadStatus={uploadStatus.MANTENIMIENTO || "idle"}
-                  uploadProgress={uploadProgress.MANTENIMIENTO || 0}
+                  uploadStatus={uploadStatus.COMPONENTES || "idle"}
+                  uploadProgress={uploadProgress.COMPONENTES || 0}
+                  multiple={true}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Drenaje de Condensado
+                  </label>
+                  <select
+                    name="drenaje_condensado"
+                    value={formData.drenaje_condensado}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Intercambiador de Calor
+                  </label>
+                  <select
+                    name="intercambiador_calor"
+                    value={formData.intercambiador_calor}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Evaporadora
+                  </label>
+                  <select
+                    name="evaporadora"
+                    value={formData.evaporadora}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Válvula de Expansión
+                  </label>
+                  <select
+                    name="valvula_expansion"
+                    value={formData.valvula_expansion}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Filtro Deshidratador
+                  </label>
+                  <select
+                    name="filtro_deshidratador"
+                    value={formData.filtro_deshidratador}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Condensador
+                  </label>
+                  <select
+                    name="condensador"
+                    value={formData.condensador}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ventiladores del Condensador
+                  </label>
+                  <select
+                    name="ventiladores_condensador"
+                    value={formData.ventiladores_condensador}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Motor del Ventilador
+                  </label>
+                  <select
+                    name="motor_ventilador"
+                    value={formData.motor_ventilador}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Compresor de Refrigeración
+                  </label>
+                  <select
+                    name="compresor_refrigeracion"
+                    value={formData.compresor_refrigeracion}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cableado Eléctrico
+                  </label>
+                  <select
+                    name="cableado_electrico"
+                    value={formData.cableado_electrico}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Contactores y Relevadores
+                  </label>
+                  <select
+                    name="contactores_relevadores"
+                    value={formData.contactores_relevadores}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tarjeta de Control
+                  </label>
+                  <select
+                    name="tarjeta_control"
+                    value={formData.tarjeta_control}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Drenaje Automático
+                  </label>
+                  <select
+                    name="drenaje_automatico"
+                    value={formData.drenaje_automatico}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sensor Punto de Rocío
+                  </label>
+                  <select
+                    name="sensor_punto_rocio"
+                    value={formData.sensor_punto_rocio}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECCIÓN: Estado General y Observaciones */}
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
+            <div className="bg-gradient-to-r from-gray-700 to-gray-800 text-white p-4">
+              <h2 className="text-xl font-bold text-center">
+                ESTADO GENERAL Y OBSERVACIONES
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Estado General del Equipo
+                  </label>
+                  <select
+                    name="estado_general"
+                    value={formData.estado_general}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Observaciones
+                  </label>
+                  <textarea
+                    name="observaciones"
+                    value={formData.observaciones}
+                    onChange={handleInputChange}
+                    rows={4}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg resize-none"
+                    placeholder="Notas adicionales sobre el equipo..."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECCIÓN: Fotos Adicionales */}
+          <div
+            id="fotos-section"
+            className="bg-white rounded-lg shadow-lg overflow-hidden mb-6"
+          >
+            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4">
+              <h2 className="text-xl font-bold text-center">
+                DOCUMENTACIÓN FOTOGRÁFICA ADICIONAL
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <PhotoUploadSection
+                  category="REFRIGERACION"
+                  label="Fotos Sistema de Refrigeración"
+                  photos={photosByCategory.REFRIGERACION}
+                  onPhotoAdd={handleCategorizedPhotoChange}
+                  onPhotoRemove={removeCategorizedPhoto}
+                  uploadStatus={uploadStatus.REFRIGERACION || "idle"}
+                  uploadProgress={uploadProgress.REFRIGERACION || 0}
                   multiple={true}
                 />
                 <PhotoUploadSection
@@ -888,86 +1117,61 @@ function CreateDryerReport() {
                 />
               </div>
             </div>
-          </>
-        )}
+          </div>
 
-        {/* ─── Action Buttons ──────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-          <div className="flex flex-wrap justify-between items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (hasUnsavedChanges) {
-                  if (confirm("¿Salir sin guardar los cambios?")) {
-                    router.back();
-                  }
-                } else {
-                  router.back();
-                }
-              }}
-              className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm"
-            >
-              Cancelar
-            </button>
-
-            <div className="flex gap-3">
+          {/* Botones de Acción */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex flex-wrap justify-center gap-4">
               <button
                 type="button"
-                onClick={() => handleSaveDraft(true)}
-                disabled={isSaving}
-                className="px-5 py-2.5 bg-emerald-100 text-emerald-700 rounded-xl hover:bg-emerald-200 transition-colors font-medium text-sm disabled:opacity-50 flex items-center gap-2"
+                onClick={() => router.back()}
+                className="px-8 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
               >
-                {isSaving ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Guardando...
-                  </>
-                ) : (
-                  "Guardar Borrador"
-                )}
+                Cancelar
               </button>
-
-              {currentStep < 3 ? (
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
+              >
+                {isSaving ? "Guardando..." : "Guardar Reporte"}
+              </button>
+              {savedFolio && (
                 <button
                   type="button"
-                  onClick={async () => {
-                    await handleSaveDraft(false);
-                    setCurrentStep(currentStep + 1);
-                    setTimeout(() => {
-                      const el = document.getElementById(`step-${currentStep + 1}`);
-                      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }, 100);
-                  }}
-                  disabled={isSaving}
-                  className="px-5 py-2.5 bg-cyan-700 text-white rounded-xl hover:bg-cyan-800 transition-colors font-medium text-sm disabled:opacity-50 flex items-center gap-2"
+                  onClick={handleDownloadPdf}
+                  className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2"
                 >
-                  Siguiente Sección →
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmitToSignature}
-                  disabled={isSaving}
-                  className="px-5 py-2.5 bg-cyan-700 text-white rounded-xl hover:bg-cyan-800 transition-colors font-medium text-sm disabled:opacity-50 flex items-center gap-2 shadow-sm"
-                >
-                  {isSaving ? "Guardando..." : "Enviar a Firma"}
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  Descargar PDF
                 </button>
               )}
             </div>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
 }
 
-export default function DryerReportPage() {
+export default function CreateDryerReport() {
   return (
-    <Suspense fallback={<LoadingOverlay isVisible={true} message="Cargando..." />}>
-      <CreateDryerReport />
+    <Suspense
+      fallback={<LoadingOverlay isVisible={true} message="Cargando..." />}
+    >
+      <DryerReportForm />
     </Suspense>
   );
 }
