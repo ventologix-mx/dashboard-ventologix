@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { URL_API } from "@/lib/global";
-import Image from "next/image";
 import { CheckCircle, XCircle, FileText, X } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
 
@@ -185,6 +184,7 @@ function ViewReportContent() {
     imageSrc: "",
   });
   const [isSavingSignature, setIsSavingSignature] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [nombrePersonaCargo, setNombrePersonaCargo] = useState("");
   const clientSignatureRef = useRef<SignatureCanvas>(null);
 
@@ -269,12 +269,33 @@ function ViewReportContent() {
     setImageModal({ isOpen: false, imageSrc: "" });
   };
 
-  const handleViewPdf = () => {
-    // Use the new Playwright endpoint to generate PDF from React view
+  const handleViewPdf = async () => {
     const folio = searchParams.get("folio");
-    if (folio) {
-      const pdfUrl = `${URL_API}/reporte_mtto/descargar-pdf-react/${folio}`;
-      window.open(pdfUrl, "_blank");
+    if (!folio) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      const response = await fetch(
+        `${URL_API}/reporte_mtto/descargar-pdf-react/${folio}`,
+      );
+      if (!response.ok) {
+        alert("Error al generar el PDF. Inténtalo de nuevo.");
+        return;
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Reporte_${folio.replace(/\//g, "-")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      alert("Error al descargar el PDF. Inténtalo de nuevo.");
+    } finally {
+      setIsDownloadingPdf(false);
     }
   };
 
@@ -401,13 +422,12 @@ function ViewReportContent() {
                   className="cursor-pointer transform hover:scale-[1.02] transition-transform"
                   onClick={() => openImageModal(fotoUrl)}
                 >
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={fotoUrl}
-                    width={600}
-                    height={600}
-                    unoptimized
                     alt={`${group.label} - Foto ${index + 1}`}
                     className="rounded-lg shadow-md w-full h-56 md:h-64 object-cover"
+                    loading="eager"
                   />
                 </div>
               ))}
@@ -605,7 +625,8 @@ function ViewReportContent() {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src="/Ventologix_05.png"
                     alt="Ventologix Logo"
                     width={64}
@@ -663,7 +684,7 @@ function ViewReportContent() {
             </div>
 
             {/* Compressor Info */}
-            <div className="p-4 border-t">
+            <div className="p-4">
               <h3 className="font-bold text-blue-900 mb-4 text-lg">
                 INFORMACIÓN DEL COMPRESOR
               </h3>
@@ -720,7 +741,7 @@ function ViewReportContent() {
             </div>
 
             {/* Order Info */}
-            <div className="p-4 border-t">
+            <div className="p-4">
               <h3 className="font-bold text-blue-900 mb-4 text-lg">
                 INFORMACIÓN DE LA ORDEN DE SERVICIO
               </h3>
@@ -827,7 +848,7 @@ function ViewReportContent() {
             </div>
 
             {/* Hours */}
-            <div className="p-4 mb-4 border-t">
+            <div className="p-4 mb-4">
               <h3 className="font-bold text-purple-900 mb-4 text-lg">
                 HORAS DE OPERACIÓN
               </h3>
@@ -860,7 +881,7 @@ function ViewReportContent() {
             </div>
 
             {/* Electrical Measurements */}
-            <div className="p-4 mb-4 border-t">
+            <div className="p-4 mb-4">
               <h3 className="font-bold text-purple-900 mb-4 text-lg">
                 MEDICIONES ELÉCTRICAS
               </h3>
@@ -893,7 +914,7 @@ function ViewReportContent() {
             </div>
 
             {/* Temperatures */}
-            <div className="p-4 mb-4 border-t">
+            <div className="p-4 mb-4">
               <h3 className="font-bold text-purple-900 mb-4 text-lg">
                 TEMPERATURAS
               </h3>
@@ -965,7 +986,7 @@ function ViewReportContent() {
             </div>
 
             {/* Pressures */}
-            <div className="p-4 mb-4 border-t">
+            <div className="p-4 mb-4">
               <h3 className="font-bold text-purple-900 mb-4 text-lg">
                 PRESIONES
               </h3>
@@ -1006,7 +1027,7 @@ function ViewReportContent() {
             </div>
 
             {/* Leaks & Oil */}
-            <div className="p-4 mb-4 border-t">
+            <div className="p-4 mb-4">
               <h3 className="font-bold text-purple-900 mb-4 text-lg">
                 FUGAS Y ACEITE
               </h3>
@@ -1039,7 +1060,7 @@ function ViewReportContent() {
             </div>
 
             {/* Environmental Conditions */}
-            <div className="p-4 border-t">
+            <div className="p-4">
               <h3 className="font-bold text-purple-900 mb-4 text-lg">
                 CONDICIONES AMBIENTALES
               </h3>
@@ -1587,7 +1608,7 @@ function ViewReportContent() {
             {(postMaintenanceData.nombre_persona_cargo ||
               postMaintenanceData.firma_persona_cargo ||
               postMaintenanceData.firma_tecnico_ventologix) && (
-              <div className="p-4 border-t">
+              <div className="p-4">
                 <h3 className="font-bold text-orange-900 mb-4 text-lg">
                   FIRMAS
                 </h3>
@@ -1602,12 +1623,11 @@ function ViewReportContent() {
                       </p>
                       {postMaintenanceData.firma_persona_cargo && (
                         <div className="border rounded-lg p-2 bg-white">
-                          <Image
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
                             src={postMaintenanceData.firma_persona_cargo}
                             alt="Firma del cliente"
-                            width={200}
-                            height={100}
-                            className="mx-auto"
+                            className="mx-auto max-w-[200px] h-auto"
                           />
                         </div>
                       )}
@@ -1619,12 +1639,11 @@ function ViewReportContent() {
                         Técnico Ventologix
                       </label>
                       <div className="border rounded-lg p-2 bg-white">
-                        <Image
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
                           src={postMaintenanceData.firma_tecnico_ventologix}
                           alt="Firma del técnico"
-                          width={200}
-                          height={100}
-                          className="mx-auto"
+                          className="mx-auto max-w-[200px] h-auto"
                         />
                       </div>
                     </div>
@@ -1655,13 +1674,12 @@ function ViewReportContent() {
                       className="cursor-pointer transform hover:scale-[1.02] transition-transform"
                       onClick={() => openImageModal(fotoUrl)}
                     >
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         src={fotoUrl}
-                        width={600}
-                        height={600}
-                        unoptimized
                         alt={`${cat} - Foto ${index + 1}`}
                         className="rounded-lg shadow-md w-full h-56 md:h-64 object-cover"
+                        loading="eager"
                       />
                     </div>
                   ))}
@@ -1720,12 +1738,11 @@ function ViewReportContent() {
               <div>
                 <h3 className="font-semibold text-gray-800 mb-2">Técnico Ventologix</h3>
                 <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 flex items-center justify-center" style={{ height: 220 }}>
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src="/firma_ivan.png"
                     alt="Firma del técnico Ventologix"
-                    width={200}
-                    height={100}
-                    className="object-contain"
+                    className="object-contain max-w-[200px] h-auto"
                   />
                 </div>
               </div>
@@ -1754,10 +1771,24 @@ function ViewReportContent() {
           </button>
           <button
             onClick={handleViewPdf}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center space-x-2"
+            disabled={isDownloadingPdf}
+            className={`px-6 py-3 text-white rounded-lg transition-colors font-medium flex items-center space-x-2 ${
+              isDownloadingPdf
+                ? "bg-red-400 cursor-not-allowed"
+                : "bg-red-600 hover:bg-red-700"
+            }`}
           >
-            <FileText size={20} />
-            <span>📄 Descargar PDF</span>
+            {isDownloadingPdf ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                <span>Generando PDF...</span>
+              </>
+            ) : (
+              <>
+                <FileText size={20} />
+                <span>Descargar PDF</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -1775,13 +1806,11 @@ function ViewReportContent() {
             <X size={28} />
           </button>
           <div className="relative max-w-5xl max-h-[90vh] w-full h-full flex items-center justify-center p-4">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={imageModal.imageSrc}
               alt="Foto ampliada"
-              fill
-              unoptimized
-              className="object-contain"
-              sizes="100vw"
+              className="object-contain max-w-full max-h-[85vh]"
               onClick={(e) => e.stopPropagation()}
             />
           </div>

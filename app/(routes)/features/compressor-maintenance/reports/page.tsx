@@ -53,6 +53,7 @@ const Reports = () => {
     new Set(),
   );
   const [loading, setLoading] = useState(true);
+  const [downloadingFolio, setDownloadingFolio] = useState<string | null>(null);
 
   useEffect(() => {
     loadUserDataAndReports();
@@ -175,6 +176,7 @@ const Reports = () => {
   };
 
   const handleDownloadPdf = async (folio: string) => {
+    setDownloadingFolio(folio);
     try {
       const response = await fetch(`${URL_API}/reporte_mtto/descargar-pdf/${folio}`);
       if (!response.ok) {
@@ -193,6 +195,8 @@ const Reports = () => {
     } catch (error) {
       console.error("Error downloading PDF:", error);
       alert("Error al descargar el PDF");
+    } finally {
+      setDownloadingFolio(null);
     }
   };
 
@@ -296,10 +300,24 @@ const Reports = () => {
                         <>
                           <button
                             onClick={() => handleDownloadPdf(orden.folio)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center space-x-2"
+                            disabled={downloadingFolio === orden.folio}
+                            className={`px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium flex items-center space-x-2 ${
+                              downloadingFolio === orden.folio
+                                ? "bg-red-400 cursor-not-allowed"
+                                : "bg-red-600 hover:bg-red-700"
+                            }`}
                           >
-                            <Download size={16} />
-                            <span>PDF</span>
+                            {downloadingFolio === orden.folio ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                <span>Generando...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Download size={16} />
+                                <span>PDF</span>
+                              </>
+                            )}
                           </button>
                           <button
                             onClick={() => handleViewReport(orden)}
