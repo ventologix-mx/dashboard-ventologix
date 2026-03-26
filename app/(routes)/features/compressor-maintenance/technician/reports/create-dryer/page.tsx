@@ -155,16 +155,12 @@ function DryerReportForm() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Cargar lista de clientes
+  // Cargar lista de clientes (no requiere auth)
   useEffect(() => {
     const loadClients = async () => {
-      if (!isAuthenticated) return;
       setLoadingClients(true);
       try {
-        const token = await getAccessTokenSilently();
-        const res = await fetch(`${URL_API}/clients/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(`${URL_API}/clients/`);
         if (res.ok) {
           const response = await res.json();
           setAllClients(response.data || []);
@@ -176,7 +172,7 @@ function DryerReportForm() {
       }
     };
     loadClients();
-  }, [isAuthenticated, getAccessTokenSilently]);
+  }, []);
 
   // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
@@ -388,7 +384,7 @@ function DryerReportForm() {
             </div>
             <div className="p-6">
               {/* Selección de Cliente */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg" ref={dropdownRef}>
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg print:hidden" ref={dropdownRef}>
                 <h3 className="font-bold text-gray-700 mb-3">
                   Seleccionar Cliente
                 </h3>
