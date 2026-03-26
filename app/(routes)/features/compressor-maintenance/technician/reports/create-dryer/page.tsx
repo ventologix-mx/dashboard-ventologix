@@ -9,14 +9,6 @@ import BackButton from "@/components/BackButton";
 import { PhotoUploadSection } from "@/components/PhotoUploadSection";
 import Image from "next/image";
 
-interface ClientData {
-  numero_cliente: string | number;
-  nombre_cliente: string;
-  RFC: string;
-  direccion: string;
-  champion: string;
-}
-
 interface DryerFormData {
   folio: string;
   cliente: string;
@@ -77,7 +69,6 @@ function DryerReportForm() {
   const [loading, setLoading] = useState(false);
   const [searchingClient, setSearchingClient] = useState(false);
   const [clientNumber, setClientNumber] = useState("");
-  const [allClients, setAllClients] = useState<ClientData[]>([]);
   const [savedFolio, setSavedFolio] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -151,27 +142,39 @@ function DryerReportForm() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Cargar lista de clientes
-  useEffect(() => {
-    const loadClients = async () => {
-      if (!isAuthenticated) return;
-      try {
-        const token = await getAccessTokenSilently();
-        const res = await fetch(`${URL_API}/clients/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const response = await res.json();
-          // API returns { data: clients[] }
-          const clientsArray = response.data || [];
-          console.log("Clientes cargados:", clientsArray.length);
-          setAllClients(clientsArray);
+  // Búsqueda de cliente por número (directo al API)
+  const searchClientByNumber = useCallback(async (numero: string) => {
+    if (!numero.trim() || !isAuthenticated) return;
+    setSearchingClient(true);
+    try {
+      const token = await getAccessTokenSilently();
+      const res = await fetch(`${URL_API}/clients/${numero.trim()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const response = await res.json();
+        if (response.data) {
+          const found = response.data;
+          setFormData((prev) => ({
+            ...prev,
+            numero_cliente: String(found.numero_cliente),
+            cliente: found.nombre_cliente || "",
+            rfc: found.RFC || "",
+            direccion: found.direccion || "",
+            ingeniero_obra: found.champion || "",
+          }));
+        } else {
+          alert("Cliente no encontrado");
         }
-      } catch (error) {
-        console.error("Error cargando clientes:", error);
+      } else {
+        alert("Cliente no encontrado");
       }
-    };
-    loadClients();
+    } catch (error) {
+      console.error("Error buscando cliente:", error);
+      alert("Error al buscar cliente");
+    } finally {
+      setSearchingClient(false);
+    }
   }, [isAuthenticated, getAccessTokenSilently]);
 
   // Cargar reporte existente
@@ -200,43 +203,8 @@ function DryerReportForm() {
 
   // Búsqueda de cliente por número
   const handleClientSearch = useCallback(() => {
-    if (!clientNumber.trim()) return;
-    setSearchingClient(true);
-
-    // Ensure allClients is an array
-    const clientsArray = Array.isArray(allClients) ? allClients : [];
-    console.log(
-      "Buscando cliente:",
-      clientNumber,
-      "en",
-      clientsArray.length,
-      "clientes",
-    );
-
-    const found = clientsArray.find(
-      (c) =>
-        String(c.numero_cliente || "").toLowerCase() ===
-        clientNumber.trim().toLowerCase(),
-    );
-    if (found) {
-      console.log("Cliente encontrado:", found);
-      setFormData((prev) => ({
-        ...prev,
-        numero_cliente: String(found.numero_cliente),
-        cliente: found.nombre_cliente || "",
-        rfc: found.RFC || "",
-        direccion: found.direccion || "",
-        ingeniero_obra: found.champion || "",
-      }));
-    } else {
-      console.log(
-        "No se encontró cliente. Números disponibles:",
-        clientsArray.slice(0, 5).map((c) => c.numero_cliente),
-      );
-      alert("Cliente no encontrado");
-    }
-    setSearchingClient(false);
-  }, [clientNumber, allClients]);
+    searchClientByNumber(clientNumber);
+  }, [clientNumber, searchClientByNumber]);
 
   // Handle categorized photo uploads
   const handleCategorizedPhotoChange = (
