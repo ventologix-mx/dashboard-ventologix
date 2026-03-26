@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { URL_API } from "@/lib/global";
@@ -9,7 +9,7 @@ import BackButton from "@/components/BackButton";
 import { PhotoUploadSection } from "@/components/PhotoUploadSection";
 import Image from "next/image";
 
-interface ClientData {
+interface ClientOption {
   numero_cliente: string | number;
   nombre_cliente: string;
   RFC: string;
@@ -75,11 +75,15 @@ function DryerReportForm() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
-  const [searchingClient, setSearchingClient] = useState(false);
-  const [clientNumber, setClientNumber] = useState("");
-  const [allClients, setAllClients] = useState<ClientData[]>([]);
   const [savedFolio, setSavedFolio] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Client dropdown
+  const [allClients, setAllClients] = useState<ClientOption[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Photo categories for dryer
   const [photosByCategory, setPhotosByCategory] = useState<{
@@ -151,28 +155,58 @@ function DryerReportForm() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Cargar lista de clientes
+  // Cargar lista de clientes (no requiere auth)
   useEffect(() => {
     const loadClients = async () => {
-      if (!isAuthenticated) return;
+      setLoadingClients(true);
       try {
-        const token = await getAccessTokenSilently();
-        const res = await fetch(`${URL_API}/clients/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(`${URL_API}/clients/`);
         if (res.ok) {
           const response = await res.json();
-          // API returns { data: clients[] }
-          const clientsArray = response.data || [];
-          console.log("Clientes cargados:", clientsArray.length);
-          setAllClients(clientsArray);
+          setAllClients(response.data || []);
         }
       } catch (error) {
         console.error("Error cargando clientes:", error);
+      } finally {
+        setLoadingClients(false);
       }
     };
     loadClients();
-  }, [isAuthenticated, getAccessTokenSilently]);
+  }, []);
+
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowClientDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Filtrar clientes por búsqueda
+  const filteredClients = allClients.filter((c) => {
+    if (!clientSearch.trim()) return true;
+    const q = clientSearch.toLowerCase();
+    return (
+      String(c.numero_cliente).toLowerCase().includes(q) ||
+      (c.nombre_cliente || "").toLowerCase().includes(q)
+    );
+  });
+
+  const selectClient = (client: ClientOption) => {
+    setFormData((prev) => ({
+      ...prev,
+      numero_cliente: String(client.numero_cliente),
+      cliente: client.nombre_cliente || "",
+      rfc: client.RFC || "",
+      direccion: client.direccion || "",
+      ingeniero_obra: client.champion || "",
+    }));
+    setClientSearch("");
+    setShowClientDropdown(false);
+  };
 
   // Cargar reporte existente
   useEffect(() => {
@@ -197,46 +231,6 @@ function DryerReportForm() {
     };
     loadReport();
   }, [folioParam, isAuthenticated, getAccessTokenSilently]);
-
-  // Búsqueda de cliente por número
-  const handleClientSearch = useCallback(() => {
-    if (!clientNumber.trim()) return;
-    setSearchingClient(true);
-
-    // Ensure allClients is an array
-    const clientsArray = Array.isArray(allClients) ? allClients : [];
-    console.log(
-      "Buscando cliente:",
-      clientNumber,
-      "en",
-      clientsArray.length,
-      "clientes",
-    );
-
-    const found = clientsArray.find(
-      (c) =>
-        String(c.numero_cliente || "").toLowerCase() ===
-        clientNumber.trim().toLowerCase(),
-    );
-    if (found) {
-      console.log("Cliente encontrado:", found);
-      setFormData((prev) => ({
-        ...prev,
-        numero_cliente: String(found.numero_cliente),
-        cliente: found.nombre_cliente || "",
-        rfc: found.RFC || "",
-        direccion: found.direccion || "",
-        ingeniero_obra: found.champion || "",
-      }));
-    } else {
-      console.log(
-        "No se encontró cliente. Números disponibles:",
-        clientsArray.slice(0, 5).map((c) => c.numero_cliente),
-      );
-      alert("Cliente no encontrado");
-    }
-    setSearchingClient(false);
-  }, [clientNumber, allClients]);
 
   // Handle categorized photo uploads
   const handleCategorizedPhotoChange = (
@@ -389,37 +383,74 @@ function DryerReportForm() {
               </h2>
             </div>
             <div className="p-6">
-              {/* Búsqueda de Cliente */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              {/* Selección de Cliente */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg print:hidden" ref={dropdownRef}>
                 <h3 className="font-bold text-gray-700 mb-3">
-                  Buscar Cliente por Número
+                  Seleccionar Cliente
                 </h3>
-                <div className="flex gap-4 items-end">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Número de Cliente
-                    </label>
-                    <input
-                      type="text"
-                      value={clientNumber}
-                      onChange={(e) => setClientNumber(e.target.value)}
-                      onKeyPress={(e) =>
-                        e.key === "Enter" &&
-                        (e.preventDefault(), handleClientSearch())
-                      }
-                      placeholder="Ingrese número de cliente"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleClientSearch}
-                    disabled={searchingClient}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                  >
-                    {searchingClient ? "Buscando..." : "Buscar"}
-                  </button>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    onChange={(e) => {
+                      setClientSearch(e.target.value);
+                      setShowClientDropdown(true);
+                    }}
+                    onFocus={() => setShowClientDropdown(true)}
+                    placeholder={loadingClients ? "Cargando clientes..." : "Buscar por nombre o número de cliente..."}
+                    disabled={loadingClients}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  {showClientDropdown && filteredClients.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {filteredClients.map((c, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => selectClient(c)}
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                        >
+                          <span className="font-semibold text-blue-700">
+                            {c.numero_cliente}
+                          </span>
+                          <span className="text-gray-500 mx-2">—</span>
+                          <span className="text-gray-800">
+                            {c.nombre_cliente}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {showClientDropdown && clientSearch.trim() && filteredClients.length === 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-gray-500 text-center">
+                      No se encontraron clientes
+                    </div>
+                  )}
                 </div>
+                {formData.cliente && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
+                    <span className="text-blue-800 font-medium">
+                      Cliente seleccionado: <strong>{formData.numero_cliente}</strong> — {formData.cliente}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          numero_cliente: "",
+                          cliente: "",
+                          rfc: "",
+                          direccion: "",
+                          ingeniero_obra: "",
+                        }));
+                        setClientSearch("");
+                      }}
+                      className="text-red-500 hover:text-red-700 text-sm font-medium ml-4"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -432,7 +463,8 @@ function DryerReportForm() {
                     name="cliente"
                     value={formData.cliente}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    readOnly
                     required
                   />
                 </div>
