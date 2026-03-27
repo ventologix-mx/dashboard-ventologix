@@ -60,6 +60,7 @@ interface TicketFormData {
   anio: string;
   problemDescription: string;
   tipoMantenimiento: string;
+  descripcionProyecto: string;
   priority: string;
   scheduledDate: string;
   hora: string;
@@ -119,6 +120,7 @@ const TypeReportes = () => {
     anio: "",
     problemDescription: "",
     tipoMantenimiento: "",
+    descripcionProyecto: "",
     priority: "media",
     scheduledDate: "",
     hora: "no-aplica",
@@ -208,7 +210,7 @@ const TypeReportes = () => {
       if (data.data) {
         // Filter out completed/terminado orders
         const activeOrders = data.data.filter(
-          (orden: OrdenServicio) => orden.estado !== "terminado"
+          (orden: OrdenServicio) => orden.estado !== "terminado",
         );
         setOrdenesServicio(activeOrders);
       } else {
@@ -301,6 +303,7 @@ const TypeReportes = () => {
       anio: compressor.anio?.toString() ?? "",
       problemDescription: "",
       tipoMantenimiento: "",
+      descripcionProyecto: "",
       priority: "media",
       scheduledDate: "",
       hora: "no-aplica",
@@ -328,6 +331,7 @@ const TypeReportes = () => {
       anio: "",
       problemDescription: "",
       tipoMantenimiento: "",
+      descripcionProyecto: "",
       priority: "media",
       scheduledDate: "",
       hora: "no-aplica",
@@ -530,6 +534,7 @@ const TypeReportes = () => {
           anio: "",
           problemDescription: "",
           tipoMantenimiento: "",
+          descripcionProyecto: "",
           priority: "media",
           scheduledDate: "",
           hora: "no-aplica",
@@ -919,7 +924,8 @@ const TypeReportes = () => {
                                       className={`px-2 py-1 text-sm font-medium rounded ${
                                         orden.estado === "no_iniciado"
                                           ? "bg-blue-50 text-blue-700"
-                                          : orden.estado === "en_proceso" || orden.estado === "en_progreso"
+                                          : orden.estado === "en_proceso" ||
+                                              orden.estado === "en_progreso"
                                             ? "bg-blue-100 text-blue-800"
                                             : orden.estado === "por_firmar"
                                               ? "bg-yellow-100 text-yellow-800"
@@ -1004,7 +1010,11 @@ const TypeReportes = () => {
                                 </div>
                                 {orden.estado === "por_firmar" ? (
                                   <button
-                                    onClick={() => router.push(`/features/compressor-maintenance/reports/view?folio=${orden.folio}`)}
+                                    onClick={() =>
+                                      router.push(
+                                        `/features/compressor-maintenance/reports/view?folio=${orden.folio}`,
+                                      )
+                                    }
                                     className="w-full px-4 py-3 bg-yellow-600 text-white text-base font-medium rounded-lg hover:bg-yellow-700 transition-colors"
                                     title="Firmar Reporte"
                                   >
@@ -1657,8 +1667,28 @@ const TypeReportes = () => {
                             8,000 Hrs - Filtro Aire + Filtro Aceite + Separador
                             Aceite + Aceite
                           </option>
+                          <option value="Mantenimiento Especial">
+                            Mantenimiento Especial
+                          </option>
                         </select>
                       </div>
+
+                      {/* Descripción de Proyecto (solo para Mantenimiento Especial) */}
+                      {ticketData.tipoMantenimiento === "Mantenimiento Especial" && (
+                        <div>
+                          <label className="block text-blue-800 text-base font-medium mb-1">
+                            Descripción del Proyecto
+                          </label>
+                          <textarea
+                            name="descripcionProyecto"
+                            value={ticketData.descripcionProyecto}
+                            onChange={handleInputChange}
+                            placeholder="Describa el proyecto o trabajo especial a realizar..."
+                            rows={4}
+                            className="w-full px-4 py-3 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-base resize-vertical"
+                          />
+                        </div>
+                      )}
 
                       {/* Action Buttons */}
                       <div className="flex gap-3 pt-4">
