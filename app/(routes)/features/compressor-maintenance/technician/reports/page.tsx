@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { URL_API } from "@/lib/global";
+import { useDialog } from "@/hooks/useDialog";
 
 interface CompressorSearchResult {
   hp: number;
@@ -60,6 +61,7 @@ interface TicketFormData {
   anio: string;
   problemDescription: string;
   tipoMantenimiento: string;
+  descripcionProyecto: string;
   priority: string;
   scheduledDate: string;
   hora: string;
@@ -92,6 +94,7 @@ const formatTime = (timeString: string) => {
 
 const TypeReportes = () => {
   const router = useRouter();
+  const { showSuccess, showError } = useDialog();
   const [rol, setRol] = useState<number | null>(null);
   const [isClienteEventual, setIsClienteEventual] = useState(false);
   const [isNewEventual, setIsNewEventual] = useState(true);
@@ -119,6 +122,7 @@ const TypeReportes = () => {
     anio: "",
     problemDescription: "",
     tipoMantenimiento: "",
+    descripcionProyecto: "",
     priority: "media",
     scheduledDate: "",
     hora: "no-aplica",
@@ -208,7 +212,7 @@ const TypeReportes = () => {
       if (data.data) {
         // Filter out completed/terminado orders
         const activeOrders = data.data.filter(
-          (orden: OrdenServicio) => orden.estado !== "terminado"
+          (orden: OrdenServicio) => orden.estado !== "terminado",
         );
         setOrdenesServicio(activeOrders);
       } else {
@@ -216,7 +220,7 @@ const TypeReportes = () => {
       }
     } catch (error) {
       console.error("Error fetching ordenes de servicio:", error);
-      alert("Error al cargar las órdenes de servicio");
+      showError("Error", "No se pudieron cargar las órdenes de servicio");
     } finally {
       setLoadingOrdenes(false);
     }
@@ -301,6 +305,7 @@ const TypeReportes = () => {
       anio: compressor.anio?.toString() ?? "",
       problemDescription: "",
       tipoMantenimiento: "",
+      descripcionProyecto: "",
       priority: "media",
       scheduledDate: "",
       hora: "no-aplica",
@@ -328,6 +333,7 @@ const TypeReportes = () => {
       anio: "",
       problemDescription: "",
       tipoMantenimiento: "",
+      descripcionProyecto: "",
       priority: "media",
       scheduledDate: "",
       hora: "no-aplica",
@@ -512,7 +518,7 @@ const TypeReportes = () => {
       const result = await response.json();
 
       if (response.ok) {
-        alert(`✅ Ticket creado exitosamente con folio: ${ticketData.folio}`);
+        showSuccess("Ticket Creado", `Folio: ${ticketData.folio}`);
         // Reset form
         setSelectedCompressor(null);
         setIsClienteEventual(false);
@@ -530,6 +536,7 @@ const TypeReportes = () => {
           anio: "",
           problemDescription: "",
           tipoMantenimiento: "",
+          descripcionProyecto: "",
           priority: "media",
           scheduledDate: "",
           hora: "no-aplica",
@@ -559,11 +566,11 @@ const TypeReportes = () => {
           errorMessage = result.error;
         }
 
-        alert(`❌ Error al crear el ticket: ${errorMessage}`);
+        showError("Error al crear ticket", errorMessage);
       }
     } catch (error) {
       console.error("Error submitting ticket:", error);
-      alert("❌ Error al enviar el ticket. Por favor, intente nuevamente.");
+      showError("Error", "No se pudo enviar el ticket. Por favor, intente nuevamente.");
     }
   };
 
@@ -593,23 +600,16 @@ const TypeReportes = () => {
       const result = await response.json();
 
       if (response.ok) {
-        alert(`✅ Ticket actualizado exitosamente`);
+        showSuccess("Ticket Actualizado", "Los cambios se guardaron correctamente");
         setShowEditModal(false);
         setEditingTicket(null);
         fetchAllOrdenes();
       } else {
-        alert(
-          `❌ Error al actualizar el ticket: ${
-            result.detail ||
-            result.message ||
-            result.error ||
-            "Error desconocido"
-          }`,
-        );
+        showError("Error al actualizar ticket", result.detail || result.message || result.error || "Error desconocido");
       }
     } catch (error) {
       console.error("Error updating ticket:", error);
-      alert("❌ Error al actualizar el ticket. Por favor, intente nuevamente.");
+      showError("Error", "No se pudo actualizar el ticket. Por favor, intente nuevamente.");
     }
   };
 
@@ -625,21 +625,14 @@ const TypeReportes = () => {
       const result = await response.json();
 
       if (response.ok) {
-        alert(`✅ Ticket eliminado exitosamente`);
+        showSuccess("Ticket Eliminado", "El ticket fue eliminado correctamente");
         fetchAllOrdenes();
       } else {
-        alert(
-          `❌ Error al eliminar el ticket: ${
-            result.detail ||
-            result.message ||
-            result.error ||
-            "Error desconocido"
-          }`,
-        );
+        showError("Error al eliminar ticket", result.detail || result.message || result.error || "Error desconocido");
       }
     } catch (error) {
       console.error("Error deleting ticket:", error);
-      alert("❌ Error al eliminar el ticket. Por favor, intente nuevamente.");
+      showError("Error", "No se pudo eliminar el ticket. Por favor, intente nuevamente.");
     }
   };
 
@@ -690,11 +683,11 @@ const TypeReportes = () => {
           errorMessage = result.error;
         }
 
-        alert(`❌ Error al actualizar el estado: ${errorMessage}`);
+        showError("Error al actualizar estado", errorMessage);
       }
     } catch (error) {
       console.error("Error updating orden estado:", error);
-      alert("❌ Error al actualizar el estado. Por favor, intente nuevamente.");
+      showError("Error", "No se pudo actualizar el estado. Por favor, intente nuevamente.");
     }
   };
 
@@ -919,7 +912,8 @@ const TypeReportes = () => {
                                       className={`px-2 py-1 text-sm font-medium rounded ${
                                         orden.estado === "no_iniciado"
                                           ? "bg-blue-50 text-blue-700"
-                                          : orden.estado === "en_proceso" || orden.estado === "en_progreso"
+                                          : orden.estado === "en_proceso" ||
+                                              orden.estado === "en_progreso"
                                             ? "bg-blue-100 text-blue-800"
                                             : orden.estado === "por_firmar"
                                               ? "bg-yellow-100 text-yellow-800"
@@ -1004,7 +998,11 @@ const TypeReportes = () => {
                                 </div>
                                 {orden.estado === "por_firmar" ? (
                                   <button
-                                    onClick={() => router.push(`/features/compressor-maintenance/reports/view?folio=${orden.folio}`)}
+                                    onClick={() =>
+                                      router.push(
+                                        `/features/compressor-maintenance/reports/view?folio=${orden.folio}`,
+                                      )
+                                    }
                                     className="w-full px-4 py-3 bg-yellow-600 text-white text-base font-medium rounded-lg hover:bg-yellow-700 transition-colors"
                                     title="Firmar Reporte"
                                   >
@@ -1657,8 +1655,28 @@ const TypeReportes = () => {
                             8,000 Hrs - Filtro Aire + Filtro Aceite + Separador
                             Aceite + Aceite
                           </option>
+                          <option value="Mantenimiento Especial">
+                            Mantenimiento Especial
+                          </option>
                         </select>
                       </div>
+
+                      {/* Descripción de Proyecto (solo para Mantenimiento Especial) */}
+                      {ticketData.tipoMantenimiento === "Mantenimiento Especial" && (
+                        <div>
+                          <label className="block text-blue-800 text-base font-medium mb-1">
+                            Descripción del Proyecto
+                          </label>
+                          <textarea
+                            name="descripcionProyecto"
+                            value={ticketData.descripcionProyecto}
+                            onChange={handleInputChange}
+                            placeholder="Describa el proyecto o trabajo especial a realizar..."
+                            rows={4}
+                            className="w-full px-4 py-3 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-base resize-vertical"
+                          />
+                        </div>
+                      )}
 
                       {/* Action Buttons */}
                       <div className="flex gap-3 pt-4">

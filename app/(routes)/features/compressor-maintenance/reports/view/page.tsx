@@ -7,6 +7,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { URL_API } from "@/lib/global";
 import { CheckCircle, XCircle, FileText, X, Pencil, Save, XOctagon } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
+import { useDialog } from "@/hooks/useDialog";
 
 interface MaintenanceItem {
   nombre: string;
@@ -168,6 +169,7 @@ const maintenanceFieldsMap: { [key: string]: string } = {
 function ViewReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { showSuccess, showError, showWarning } = useDialog();
 
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [preMaintenanceData, setPreMaintenanceData] =
@@ -296,7 +298,7 @@ function ViewReportContent() {
         `${URL_API}/reporte_mtto/descargar-pdf-react/${folio}`,
       );
       if (!response.ok) {
-        alert("Error al generar el PDF. Inténtalo de nuevo.");
+        showError("Error", "No se pudo generar el PDF. Inténtalo de nuevo.");
         return;
       }
       const blob = await response.blob();
@@ -310,7 +312,7 @@ function ViewReportContent() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error downloading PDF:", error);
-      alert("Error al descargar el PDF. Inténtalo de nuevo.");
+      showError("Error", "No se pudo descargar el PDF. Inténtalo de nuevo.");
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -321,7 +323,7 @@ function ViewReportContent() {
     if (!folio) return;
 
     if (!clientSignatureRef.current || clientSignatureRef.current.isEmpty()) {
-      alert("Por favor agregue la firma del cliente/persona a cargo antes de guardar.");
+      showWarning("Firma requerida", "Por favor agregue la firma del cliente/persona a cargo antes de guardar.");
       return;
     }
 
@@ -344,7 +346,7 @@ function ViewReportContent() {
 
       if (!saveSignResponse.ok) {
         const signResult = await saveSignResponse.json();
-        alert("❌ Error al guardar la firma: " + (signResult?.error || signResult?.detail || "Error desconocido"));
+        showError("Error al guardar firma", signResult?.error || signResult?.detail || "Error desconocido");
         return;
       }
 
@@ -356,15 +358,15 @@ function ViewReportContent() {
       const finalizeResult = await finalizeResponse.json();
 
       if (finalizeResult?.success) {
-        alert("✅ Reporte firmado y terminado exitosamente!");
+        showSuccess("Reporte Finalizado", "El reporte fue firmado y terminado exitosamente");
         loadAllReportData(folio);
       } else {
         const errorMsg = finalizeResult?.error || "Error desconocido al finalizar";
-        alert("❌ Error al finalizar el reporte: " + errorMsg);
+        showError("Error al finalizar reporte", errorMsg);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      alert("❌ Error: " + errorMsg);
+      showError("Error", errorMsg);
     } finally {
       setIsSavingSignature(false);
     }
@@ -402,54 +404,69 @@ function ViewReportContent() {
 
     setIsSaving(true);
     try {
-      const promises: Promise<Response>[] = [];
+      const sections: { name: string; promise: Promise<Response> }[] = [];
 
       if (editedPre) {
-        promises.push(
-          fetch(`${URL_API}/reporte_mtto/pre-mtto`, {
+        sections.push({
+          name: "Pre-mantenimiento",
+          promise: fetch(`${URL_API}/reporte_mtto/pre-mtto`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(editedPre),
           }),
-        );
+        });
       }
 
       if (editedMaintenance) {
-        promises.push(
-          fetch(`${URL_API}/reporte_mantenimiento/`, {
+        sections.push({
+          name: "Mantenimiento",
+          promise: fetch(`${URL_API}/reporte_mantenimiento/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(editedMaintenance),
           }),
-        );
+        });
       }
 
       if (editedPost) {
-        promises.push(
-          fetch(`${URL_API}/reporte_mtto/post-mtto`, {
+        sections.push({
+          name: "Post-mantenimiento",
+          promise: fetch(`${URL_API}/reporte_mtto/post-mtto`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(editedPost),
           }),
-        );
+        });
       }
 
-      const results = await Promise.all(promises);
-      const allOk = results.every((r) => r.ok);
+      const results = await Promise.all(sections.map((s) => s.promise));
+      const errors: string[] = [];
 
-      if (allOk) {
-        alert("Reporte actualizado exitosamente");
+      for (let i = 0; i < results.length; i++) {
+        const res = results[i];
+        if (!res.ok) {
+          errors.push(`${sections[i].name}: Error HTTP ${res.status}`);
+          continue;
+        }
+        const body = await res.json();
+        if (body.success === false) {
+          errors.push(`${sections[i].name}: ${body.error || "Error desconocido"}`);
+        }
+      }
+
+      if (errors.length === 0) {
+        showSuccess("Reporte Actualizado", "Los cambios se guardaron correctamente");
         setIsEditing(false);
         setEditedPre(null);
         setEditedMaintenance(null);
         setEditedPost(null);
         loadAllReportData(folio);
       } else {
-        alert("Error al guardar algunos cambios. Inténtalo de nuevo.");
+        showError("Error al guardar cambios", errors.join("\n"));
       }
     } catch (err) {
       console.error("Error saving edits:", err);
-      alert("Error al guardar los cambios.");
+      showError("Error", "No se pudieron guardar los cambios.");
     } finally {
       setIsSaving(false);
     }
