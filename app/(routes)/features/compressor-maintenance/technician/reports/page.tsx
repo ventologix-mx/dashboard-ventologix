@@ -30,13 +30,14 @@ interface OrdenServicio {
   marca: string;
   anio: number;
   tipo_visita: string;
+  tipo_mantenimiento: string;
+  descripcion_proyecto: string;
   prioridad: string;
   fecha_programada: string;
   hora_programada: string;
   estado: string;
   fecha_creacion: string;
   reporte_url: string;
-  tipo_mantenimiento: string;
 }
 
 interface EventualClient {
@@ -495,6 +496,7 @@ const TypeReportes = () => {
         anio: parseInt(ticketData.anio) || 0,
         tipo_visita: ticketData.problemDescription,
         tipo_mantenimiento: ticketData.tipoMantenimiento,
+        descripcion_proyecto: ticketData.descripcionProyecto || null,
         prioridad: ticketData.priority,
         fecha_programada:
           ticketData.scheduledDate || new Date().toISOString().split("T")[0],

@@ -53,12 +53,13 @@ def get_all_ordenes():
                 "anio": row[10],
                 "tipo_visita": row[11],
                 "tipo_mantenimiento": row[12],
-                "prioridad": row[13],
-                "fecha_programada": row[14],
-                "hora_programada": row[15],
-                "estado": row[16],
-                "fecha_creacion": row[17],
-                "reporte_url": row[18],
+                "descripcion_proyecto": row[13],
+                "prioridad": row[14],
+                "fecha_programada": row[15],
+                "hora_programada": row[16],
+                "estado": row[17],
+                "fecha_creacion": row[18],
+                "reporte_url": row[19],
             }
             for row in res
         ]
@@ -108,13 +109,13 @@ def get_ordenes_by_folio(folio: str = Path(..., description="The folio of the or
                 "anio": row[10],
                 "tipo_visita": row[11],
                 "tipo_mantenimiento": row[12],
-                "prioridad": row[13],
-                "fecha_programada": row[14],
-                "hora_programada": row[15],
-                "estado": row[16],
-                "fecha_creacion": row[17],
-                "reporte_url": row[18],
-
+                "descripcion_proyecto": row[13],
+                "prioridad": row[14],
+                "fecha_programada": row[15],
+                "hora_programada": row[16],
+                "estado": row[17],
+                "fecha_creacion": row[18],
+                "reporte_url": row[19],
             }
             for row in res
         ]
@@ -139,11 +140,11 @@ def create_orden_servicio(request: OrdenServicio):
 
         cursor.execute(
             """INSERT INTO ordenes_servicio
-            (folio, id_cliente, id_cliente_eventual, nombre_cliente, 
+            (folio, id_cliente, id_cliente_eventual, nombre_cliente,
             numero_cliente, alias_compresor, numero_serie, hp, tipo, marca, anio,
-            tipo_visita, tipo_mantenimiento, prioridad, fecha_programada, hora_programada,
+            tipo_visita, tipo_mantenimiento, descripcion_proyecto, prioridad, fecha_programada, hora_programada,
             estado, fecha_creacion, reporte_url)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
             (
             request.folio,
@@ -159,6 +160,7 @@ def create_orden_servicio(request: OrdenServicio):
             request.anio,
             request.tipo_visita,
             request.tipo_mantenimiento,
+            request.descripcion_proyecto,
             request.prioridad,
             request.fecha_programada,
             request.hora_programada,
@@ -261,10 +263,10 @@ def update_orden_servicio(folio: str, request: OrdenServicio):
         
         cursor.execute(
             """UPDATE ordenes_servicio SET
-                id_cliente = %s, id_cliente_eventual = %s, nombre_cliente = %s, numero_cliente = %s, 
-                alias_compresor = %s, numero_serie = %s, hp = %s, tipo = %s, marca = %s, anio = %s, 
-                tipo_visita = %s, tipo_mantenimiento = %s, prioridad = %s, fecha_programada = %s, 
-                hora_programada = %s, estado = %s, fecha_creacion = %s, reporte_url = %s
+                id_cliente = %s, id_cliente_eventual = %s, nombre_cliente = %s, numero_cliente = %s,
+                alias_compresor = %s, numero_serie = %s, hp = %s, tipo = %s, marca = %s, anio = %s,
+                tipo_visita = %s, tipo_mantenimiento = %s, descripcion_proyecto = %s, prioridad = %s,
+                fecha_programada = %s, hora_programada = %s, estado = %s, fecha_creacion = %s, reporte_url = %s
                 WHERE folio = %s
             """,
             (
@@ -280,6 +282,7 @@ def update_orden_servicio(folio: str, request: OrdenServicio):
                 request.anio,
                 request.tipo_visita,
                 request.tipo_mantenimiento,
+                request.descripcion_proyecto,
                 request.prioridad,
                 request.fecha_programada,
                 request.hora_programada,
