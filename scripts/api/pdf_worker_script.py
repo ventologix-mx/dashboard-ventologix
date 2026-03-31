@@ -118,30 +118,34 @@ async def main() -> None:
                 });
             }""")
 
-            # Wait for all images to finish loading (served via route intercept)
+            # Wait for all images to be fully decoded and ready to paint
+            # img.decode() guarantees the image is decompressed and renderable
             img_stats = await page.evaluate("""async () => {
                 const imgs = Array.from(document.querySelectorAll('img'));
-                let loaded = 0, failed = 0;
-                await Promise.all(imgs.map(img => {
-                    if (img.complete && img.naturalHeight > 0) {
-                        loaded++;
-                        return Promise.resolve();
+                let decoded = 0, failed = 0;
+                await Promise.all(imgs.map(async (img) => {
+                    try {
+                        // First ensure the image has loaded
+                        if (!img.complete) {
+                            await Promise.race([
+                                new Promise((res, rej) => {
+                                    img.addEventListener('load', res);
+                                    img.addEventListener('error', rej);
+                                }),
+                                new Promise((_, rej) => setTimeout(() => rej('timeout'), 30000))
+                            ]);
+                        }
+                        // Then force full decode — this is what guarantees pixels are ready
+                        await img.decode();
+                        decoded++;
+                    } catch (e) {
+                        failed++;
                     }
-                    return Promise.race([
-                        new Promise(resolve => {
-                            img.addEventListener('load', () => { loaded++; resolve(); });
-                            img.addEventListener('error', () => { failed++; resolve(); });
-                        }),
-                        new Promise(resolve => setTimeout(() => { failed++; resolve(); }, 15000))
-                    ]);
                 }));
-                return { total: imgs.length, loaded, failed };
+                return { total: imgs.length, decoded, failed };
             }""")
 
-            print(f"📸 Images: {img_stats['total']} total, {img_stats['loaded']} loaded, {img_stats['failed']} failed", file=sys.stderr)
-
-            # Brief buffer for final rendering
-            await page.wait_for_timeout(1500)
+            print(f"📸 Images: {img_stats['total']} total, {img_stats['decoded']} decoded, {img_stats['failed']} failed", file=sys.stderr)
 
             # Hide non-print elements
             await page.evaluate("""() => {
