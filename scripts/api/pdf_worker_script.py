@@ -22,8 +22,8 @@ async def main() -> None:
         browser = await p.chromium.launch(headless=True)
         try:
             page = await browser.new_page()
-            await page.goto(view_url, wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_selector(".bg-white", timeout=30000)
+            await page.goto(view_url, wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_selector(".bg-white", timeout=60000)
 
             # Scroll through the full page to trigger lazy-loaded images
             await page.evaluate("""async () => {
@@ -42,23 +42,51 @@ async def main() -> None:
                 });
             }""")
 
-            # Wait for every <img> to finish loading (max 30s per image)
+            # Convert all images to base64 data URLs to avoid CORS/loading issues
+            failed_count = await page.evaluate("""async () => {
+                const imgs = Array.from(document.querySelectorAll('img'));
+                let failed = 0;
+                await Promise.all(imgs.map(async (img) => {
+                    const src = img.src;
+                    if (!src || src.startsWith('data:')) return;
+                    try {
+                        const resp = await fetch(src);
+                        if (!resp.ok) { failed++; return; }
+                        const blob = await resp.blob();
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                        img.src = dataUrl;
+                    } catch (e) {
+                        failed++;
+                    }
+                }));
+                return failed;
+            }""")
+
+            if failed_count:
+                print(f"⚠️  {failed_count} image(s) failed to convert to base64", file=sys.stderr)
+
+            # Wait for all images with base64 src to finish rendering
             await page.evaluate("""async () => {
                 const imgs = Array.from(document.querySelectorAll('img'));
                 await Promise.all(imgs.map(img => {
-                    if (img.complete) return Promise.resolve();
+                    if (img.complete && img.naturalHeight > 0) return Promise.resolve();
                     return Promise.race([
                         new Promise(resolve => {
                             img.addEventListener('load', resolve);
                             img.addEventListener('error', resolve);
                         }),
-                        new Promise(resolve => setTimeout(resolve, 30000))
+                        new Promise(resolve => setTimeout(resolve, 15000))
                     ]);
                 }));
             }""")
 
-            # Extra buffer after images load
-            await page.wait_for_timeout(1500)
+            # Extra buffer after images render
+            await page.wait_for_timeout(3000)
 
             await page.evaluate("""() => {
                 document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
