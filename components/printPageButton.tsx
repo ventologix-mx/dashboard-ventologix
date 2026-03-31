@@ -11,6 +11,31 @@ interface PrintPageButtonProps {
 const PrintPageButton: React.FC<PrintPageButtonProps> = ({
   reportType = "reporte",
 }) => {
+  // Convert all cross-origin images inside an element to base64 data URLs
+  const convertImagesToBase64 = async (element: HTMLElement) => {
+    const imgs = element.querySelectorAll("img");
+    await Promise.all(
+      Array.from(imgs).map(async (img) => {
+        const src = img.src;
+        if (!src || src.startsWith("data:")) return;
+        try {
+          const resp = await fetch(src);
+          if (!resp.ok) return;
+          const blob = await resp.blob();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          img.src = dataUrl;
+        } catch {
+          // keep original src if conversion fails
+        }
+      })
+    );
+  };
+
   const downloadAsPDF = async () => {
     // Para reporte-visita, generar y descargar PDF automáticamente usando html2canvas
     if (reportType === "reporte-visita") {
@@ -80,6 +105,9 @@ const PrintPageButton: React.FC<PrintPageButtonProps> = ({
         reportElement.style.borderRadius = "0";
 
         try {
+          // Convert cross-origin images to base64 so html-to-image can render them
+          await convertImagesToBase64(reportElement);
+
           // Generar imagen del contenido sin fondo blanco extra
           const canvas = await toPng(reportElement, {
             cacheBust: true,
@@ -220,6 +248,9 @@ const PrintPageButton: React.FC<PrintPageButtonProps> = ({
       const originalStyle = elementToCapture.style.cssText;
       elementToCapture.style.background = "#ffffff";
       elementToCapture.style.minHeight = "auto";
+
+      // Convert cross-origin images to base64 so html-to-image can render them
+      await convertImagesToBase64(elementToCapture);
 
       const options = {
         cacheBust: true,

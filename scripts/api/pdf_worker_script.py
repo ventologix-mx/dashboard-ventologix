@@ -22,10 +22,23 @@ async def main() -> None:
         browser = await p.chromium.launch(headless=True)
         try:
             page = await browser.new_page()
-            await page.goto(view_url, wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_selector(".bg-white", timeout=30000)
+            # Use networkidle to wait for API fetches to complete
+            await page.goto(view_url, wait_until="networkidle", timeout=120000)
 
-            # Scroll through the full page to trigger lazy-loaded images
+            # Wait for the actual report content (not the loading overlay)
+            # The report header has a gradient background that only renders after data loads
+            try:
+                await page.wait_for_selector(".bg-gradient-to-r", timeout=60000)
+                print("✅ Report content loaded", file=sys.stderr)
+            except Exception:
+                # Fallback: wait for any shadow-lg card (report sections)
+                await page.wait_for_selector(".shadow-lg", timeout=60000)
+                print("⚠️  Used fallback selector for report content", file=sys.stderr)
+
+            # Additional wait for React to finish rendering all sections
+            await page.wait_for_timeout(3000)
+
+            # Scroll through the full page to trigger any remaining lazy content
             await page.evaluate("""async () => {
                 await new Promise(resolve => {
                     let totalHeight = 0;
@@ -42,23 +55,55 @@ async def main() -> None:
                 });
             }""")
 
-            # Wait for every <img> to finish loading (max 30s per image)
+            # Wait for images to appear in DOM after scroll
+            await page.wait_for_timeout(2000)
+
+            # Convert all images to base64 data URLs to avoid CORS/loading issues in PDF
+            img_info = await page.evaluate("""async () => {
+                const imgs = Array.from(document.querySelectorAll('img'));
+                let failed = 0;
+                let converted = 0;
+                await Promise.all(imgs.map(async (img) => {
+                    const src = img.src;
+                    if (!src || src.startsWith('data:')) return;
+                    try {
+                        const resp = await fetch(src);
+                        if (!resp.ok) { failed++; return; }
+                        const blob = await resp.blob();
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                        img.src = dataUrl;
+                        converted++;
+                    } catch (e) {
+                        failed++;
+                    }
+                }));
+                return { total: imgs.length, converted, failed };
+            }""")
+
+            print(f"📸 Images: {img_info['total']} total, {img_info['converted']} converted, {img_info['failed']} failed", file=sys.stderr)
+
+            # Wait for all images with base64 src to finish rendering
             await page.evaluate("""async () => {
                 const imgs = Array.from(document.querySelectorAll('img'));
                 await Promise.all(imgs.map(img => {
-                    if (img.complete) return Promise.resolve();
+                    if (img.complete && img.naturalHeight > 0) return Promise.resolve();
                     return Promise.race([
                         new Promise(resolve => {
                             img.addEventListener('load', resolve);
                             img.addEventListener('error', resolve);
                         }),
-                        new Promise(resolve => setTimeout(resolve, 30000))
+                        new Promise(resolve => setTimeout(resolve, 15000))
                     ]);
                 }));
             }""")
 
-            # Extra buffer after images load
-            await page.wait_for_timeout(1500)
+            # Extra buffer after images render
+            await page.wait_for_timeout(3000)
 
             await page.evaluate("""() => {
                 document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
