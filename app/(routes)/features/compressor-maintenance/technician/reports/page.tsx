@@ -695,7 +695,12 @@ const TypeReportes = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(editingTicket),
+          body: JSON.stringify({
+            ...editingTicket,
+            tipo_equipo: editingTicket.tipo_equipo?.toLowerCase() as
+              | "compresor"
+              | "secadora",
+          }),
         },
       );
 
@@ -710,13 +715,11 @@ const TypeReportes = () => {
         setEditingTicket(null);
         fetchAllOrdenes();
       } else {
-        showError(
-          "Error al actualizar ticket",
-          result.detail ||
-            result.message ||
-            result.error ||
-            "Error desconocido",
-        );
+        const detail = result.detail;
+        const errorMsg = Array.isArray(detail)
+          ? detail.map((e: { msg: string }) => e.msg).join(", ")
+          : detail || result.message || result.error || "Error desconocido";
+        showError("Error al actualizar ticket", errorMsg);
       }
     } catch (error) {
       console.error("Error updating ticket:", error);
