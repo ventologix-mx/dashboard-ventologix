@@ -46,7 +46,7 @@ class Secadora(BaseModel):
     numero_serie: Optional[str] = None
     marca: Optional[str] = None
     anio: Optional[int] = None
-    id_cliente: Optional[int] = None
+    numero_cliente: Optional[int] = None
     fecha_ultimo_mtto: Optional[datetime] = None
 
 class CompresorEventual(BaseModel):

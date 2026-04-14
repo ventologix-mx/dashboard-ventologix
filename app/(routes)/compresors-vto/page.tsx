@@ -61,7 +61,7 @@ interface Secadora {
   numero_serie: string | null;
   marca: string | null;
   anio: number | null;
-  id_cliente: number | null;
+  numero_cliente: number | null;
   fecha_ultimo_mtto: string | null;
   nombre_cliente: string | null;
 }
@@ -72,7 +72,7 @@ interface SecadoraFormData {
   numero_serie: string;
   marca: string;
   anio: number | string;
-  id_cliente: number | string;
+  numero_cliente: number | string;
   fecha_ultimo_mtto: string;
 }
 
@@ -92,7 +92,7 @@ const Compresors = () => {
     numero_serie: "",
     marca: "",
     anio: new Date().getFullYear(),
-    id_cliente: "",
+    numero_cliente: "",
     fecha_ultimo_mtto: "",
   });
   const [loading, setLoading] = useState(true);
@@ -211,7 +211,7 @@ const Compresors = () => {
       numero_serie: "",
       marca: "",
       anio: new Date().getFullYear(),
-      id_cliente: "",
+      numero_cliente: "",
       fecha_ultimo_mtto: "",
     });
     setIsSecadoraModalOpen(true);
@@ -226,7 +226,7 @@ const Compresors = () => {
       numero_serie: secadora.numero_serie || "",
       marca: secadora.marca || "",
       anio: secadora.anio ?? "",
-      id_cliente: secadora.id_cliente ?? "",
+      numero_cliente: secadora.numero_cliente ?? "",
       fecha_ultimo_mtto: secadora.fecha_ultimo_mtto || "",
     });
     setIsSecadoraModalOpen(true);
@@ -247,7 +247,7 @@ const Compresors = () => {
       numero_serie: secadoraFormData.numero_serie || null,
       marca: secadoraFormData.marca || null,
       anio: secadoraFormData.anio ? Number(secadoraFormData.anio) : null,
-      id_cliente: secadoraFormData.id_cliente ? Number(secadoraFormData.id_cliente) : null,
+      numero_cliente: secadoraFormData.numero_cliente ? Number(secadoraFormData.numero_cliente) : null,
       fecha_ultimo_mtto: secadoraFormData.fecha_ultimo_mtto || null,
     };
 
@@ -979,7 +979,7 @@ const Compresors = () => {
                       {secadoras.map((secadora) => (
                         <tr key={secadora.id} className="hover:bg-purple-50 transition-colors">
                           <td className="border border-gray-300 p-3 text-gray-700">
-                            {secadora.nombre_cliente || `ID: ${secadora.id_cliente ?? "—"}`}
+                            {secadora.nombre_cliente || `#${secadora.numero_cliente ?? "—"}`}
                           </td>
                           <td className="border border-gray-300 p-3 font-medium text-gray-800">
                             {secadora.alias || "—"}
@@ -1104,14 +1104,14 @@ const Compresors = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">ID Cliente</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Número de Cliente</label>
                   <input
                     type="number"
-                    name="id_cliente"
-                    value={secadoraFormData.id_cliente}
+                    name="numero_cliente"
+                    value={secadoraFormData.numero_cliente}
                     onChange={handleSecadoraInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="ID del cliente"
+                    placeholder="Número de cliente"
                   />
                 </div>
 

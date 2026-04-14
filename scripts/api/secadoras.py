@@ -32,7 +32,7 @@ def get_all_secadoras():
         cursor.execute(
             """SELECT s.*, cl.nombre_cliente
                FROM secadores s
-               LEFT JOIN clientes cl ON cl.id_cliente = s.id_cliente
+               LEFT JOIN clientes cl ON cl.numero_cliente = s.numero_cliente
                ORDER BY s.id DESC"""
         )
         rows = cursor.fetchall()
@@ -52,11 +52,11 @@ def search_secadoras(query: str = Path(..., description="Alias, número de serie
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
             """SELECT s.id, s.tipo, s.alias, s.numero_serie, s.marca, s.anio,
-                      s.id_cliente, cl.nombre_cliente, cl.numero_cliente
+                      s.numero_cliente, cl.nombre_cliente
                FROM secadores s
-               LEFT JOIN clientes cl ON cl.id_cliente = s.id_cliente
+               LEFT JOIN clientes cl ON cl.numero_cliente = s.numero_cliente
                WHERE s.alias LIKE %s OR s.numero_serie LIKE %s
-                  OR cl.nombre_cliente LIKE %s OR cl.numero_cliente LIKE %s
+                  OR cl.nombre_cliente LIKE %s OR CAST(s.numero_cliente AS CHAR) LIKE %s
                LIMIT 20""",
             (f"%{query}%", f"%{query}%", f"%{query}%", f"%{query}%"),
         )
@@ -88,7 +88,7 @@ def create_secadora(request: Secadora):
             cursor.fetchall()
 
         cursor.execute(
-            """INSERT INTO secadores (tipo, alias, numero_serie, marca, anio, id_cliente, fecha_ultimo_mtto)
+            """INSERT INTO secadores (tipo, alias, numero_serie, marca, anio, numero_cliente, fecha_ultimo_mtto)
                VALUES (%s, %s, %s, %s, %s, %s, %s)""",
             (
                 request.tipo,
@@ -96,7 +96,7 @@ def create_secadora(request: Secadora):
                 request.numero_serie,
                 request.marca,
                 request.anio,
-                request.id_cliente,
+                request.numero_cliente,
                 request.fecha_ultimo_mtto,
             ),
         )
@@ -135,7 +135,7 @@ def update_secadora(secadora_id: int = Path(..., description="ID de la secadora"
         cursor.execute(
             """UPDATE secadores SET
                tipo = %s, alias = %s, numero_serie = %s, marca = %s,
-               anio = %s, id_cliente = %s, fecha_ultimo_mtto = %s
+               anio = %s, numero_cliente = %s, fecha_ultimo_mtto = %s
                WHERE id = %s""",
             (
                 request.tipo,
@@ -143,7 +143,7 @@ def update_secadora(secadora_id: int = Path(..., description="ID de la secadora"
                 request.numero_serie,
                 request.marca,
                 request.anio,
-                request.id_cliente,
+                request.numero_cliente,
                 request.fecha_ultimo_mtto,
                 secadora_id,
             ),
