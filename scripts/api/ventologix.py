@@ -49,8 +49,9 @@ def get_team_members():
         cursor = conn.cursor(dictionary=True)
 
         cursor.execute("""
-            SELECT id, nombre, puesto, correo, telefono, tecnico, rol
-            FROM ventologix
+            SELECT v.id, v.nombre, v.puesto, v.correo, v.telefono, v.tecnico, ua.rol
+            FROM ventologix v
+            JOIN usuarios_auth ua ON ua.email = v.correo
             ORDER BY nombre ASC
         """)
         members = cursor.fetchall()
@@ -77,9 +78,10 @@ def get_team_member(team_id: int):
         cursor = conn.cursor(dictionary=True)
 
         cursor.execute("""
-            SELECT id, nombre, puesto, correo, telefono, tecnico, rol
-            FROM ventologix
-            WHERE id = %s
+            SELECT v.id, v.nombre, v.puesto, v.correo, v.telefono, v.tecnico, ua.rol
+            FROM ventologix v
+            JOIN usuarios_auth ua ON ua.email = v.correo
+            WHERE v.id = %s
         """, (team_id,))
         member = cursor.fetchone()
 
@@ -107,7 +109,7 @@ def create_team_member(member: TeamMember):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # Validar que el email no exista
+        # Validar que el email no exista en ventologix
         cursor.execute(
             "SELECT id FROM ventologix WHERE correo = %s",
             (member.correo,)
@@ -115,13 +117,21 @@ def create_team_member(member: TeamMember):
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="El email ya está registrado")
 
-        # Insertar nuevo miembro
+        # Insertar nuevo miembro en ventologix
         cursor.execute("""
-            INSERT INTO ventologix (nombre, puesto, correo, telefono, tecnico, rol)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (member.nombre, member.puesto, member.correo, member.telefono or "", member.tecnico, member.rol))
+            INSERT INTO ventologix (nombre, puesto, correo, telefono, tecnico)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (member.nombre, member.puesto, member.correo, member.telefono or "", member.tecnico))
 
         member_id = cursor.lastrowid
+        
+        # Insertar/actualizar en usuarios_auth
+        cursor.execute("""
+            INSERT INTO usuarios_auth (email, rol, name)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE rol = VALUES(rol), name = VALUES(name)
+        """, (member.correo, member.rol, member.nombre))
+        
         conn.commit()
         cursor.close()
         conn.close()
@@ -161,8 +171,10 @@ def update_team_member(team_id: int, member: TeamMember):
         if not existing:
             raise HTTPException(status_code=404, detail="Miembro no encontrado")
 
+        old_email = existing['correo']
+        
         # Validar que el email no exista en otro miembro
-        if existing['correo'] != member.correo:
+        if old_email != member.correo:
             cursor.execute(
                 "SELECT id FROM ventologix WHERE correo = %s AND id != %s",
                 (member.correo, team_id)
@@ -170,12 +182,27 @@ def update_team_member(team_id: int, member: TeamMember):
             if cursor.fetchone():
                 raise HTTPException(status_code=400, detail="El email ya está registrado")
 
-        # Actualizar miembro
+        # Actualizar miembro en ventologix
         cursor.execute("""
             UPDATE ventologix
-            SET nombre = %s, puesto = %s, correo = %s, telefono = %s, tecnico = %s, rol = %s
+            SET nombre = %s, puesto = %s, correo = %s, telefono = %s, tecnico = %s
             WHERE id = %s
-        """, (member.nombre, member.puesto, member.correo, member.telefono or "", member.tecnico, member.rol, team_id))
+        """, (member.nombre, member.puesto, member.correo, member.telefono or "", member.tecnico, team_id))
+
+        # Si cambió el email, actualizar en usuarios_auth
+        if old_email != member.correo:
+            # Eliminar registro antiguo
+            cursor.execute(
+                "DELETE FROM usuarios_auth WHERE email = %s",
+                (old_email,)
+            )
+        
+        # Insertar/actualizar en usuarios_auth con el nuevo email y rol
+        cursor.execute("""
+            INSERT INTO usuarios_auth (email, rol, name)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE rol = VALUES(rol), name = VALUES(name)
+        """, (member.correo, member.rol, member.nombre))
 
         conn.commit()
         cursor.close()
@@ -207,16 +234,25 @@ def delete_team_member(team_id: int):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # Verificar que el miembro existe
+        # Verificar que el miembro existe y obtener su email
         cursor.execute(
-            "SELECT id FROM ventologix WHERE id = %s",
+            "SELECT id, correo FROM ventologix WHERE id = %s",
             (team_id,)
         )
-        if not cursor.fetchone():
+        member = cursor.fetchone()
+        if not member:
             raise HTTPException(status_code=404, detail="Miembro no encontrado")
 
-        # Eliminar miembro
+        member_email = member['correo']
+        
+        # Eliminar miembro de ventologix
         cursor.execute("DELETE FROM ventologix WHERE id = %s", (team_id,))
+        
+        # Eliminar de usuarios_auth también
+        cursor.execute(
+            "DELETE FROM usuarios_auth WHERE email = %s",
+            (member_email,)
+        )
 
         conn.commit()
         cursor.close()
