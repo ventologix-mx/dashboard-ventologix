@@ -172,15 +172,20 @@ const TypeReportes = () => {
 
   // Dryer search
   const [dryerSearch, setDryerSearch] = useState("");
-  const [dryerSearchResults, setDryerSearchResults] = useState<SecadoraSearchResult[]>([]);
+  const [dryerSearchResults, setDryerSearchResults] = useState<
+    SecadoraSearchResult[]
+  >([]);
   const [showDryerResults, setShowDryerResults] = useState(false);
-  const [selectedDryer, setSelectedDryer] = useState<SecadoraSearchResult | null>(null);
+  const [selectedDryer, setSelectedDryer] =
+    useState<SecadoraSearchResult | null>(null);
   const [isNewDryer, setIsNewDryer] = useState(false);
   // Client picker for new dryer registration
   const [allClients, setAllClients] = useState<ClientOption[]>([]);
   const [newDryerClientSearch, setNewDryerClientSearch] = useState("");
-  const [showNewDryerClientDropdown, setShowNewDryerClientDropdown] = useState(false);
-  const [selectedNewDryerClient, setSelectedNewDryerClient] = useState<ClientOption | null>(null);
+  const [showNewDryerClientDropdown, setShowNewDryerClientDropdown] =
+    useState(false);
+  const [selectedNewDryerClient, setSelectedNewDryerClient] =
+    useState<ClientOption | null>(null);
 
   // Load user role on mount and check authorization
   useEffect(() => {
@@ -370,7 +375,9 @@ const TypeReportes = () => {
       return;
     }
     try {
-      const res = await fetch(`${URL_API}/secadoras/search/${encodeURIComponent(query)}`);
+      const res = await fetch(
+        `${URL_API}/secadoras/search/${encodeURIComponent(query)}`,
+      );
       if (res.ok) {
         const data = await res.json();
         setDryerSearchResults(data.data || []);
@@ -429,9 +436,10 @@ const TypeReportes = () => {
       ...prev,
       clientName: client.nombre_cliente || "",
       numeroCliente: numCliente,
-      folio: prev.serialNumber.length >= 4
-        ? generateDryerFolio(numCliente, prev.serialNumber)
-        : "",
+      folio:
+        prev.serialNumber.length >= 4
+          ? generateDryerFolio(numCliente, prev.serialNumber)
+          : "",
     }));
   };
 
@@ -645,7 +653,8 @@ const TypeReportes = () => {
           numero_serie: ticketData.serialNumber || null,
           marca: ticketData.marca || null,
           anio: ticketData.anio ? parseInt(ticketData.anio) : null,
-          numero_cliente: parseInt(String(selectedNewDryerClient.numero_cliente)) || null,
+          numero_cliente:
+            parseInt(String(selectedNewDryerClient.numero_cliente)) || null,
         };
         try {
           const dryerRes = await fetch(`${URL_API}/secadoras/`, {
@@ -685,8 +694,7 @@ const TypeReportes = () => {
         tipo_mantenimiento: ticketData.tipoMantenimiento,
         descripcion_proyecto: ticketData.descripcionProyecto || null,
         prioridad: ticketData.priority,
-        fecha_programada:
-          ticketData.scheduledDate || todayString(),
+        fecha_programada: ticketData.scheduledDate || todayString(),
         hora_programada:
           ticketData.hora !== "no-aplica" ? ticketData.hora : "00:00:00",
         estado: "no_iniciado",
@@ -795,9 +803,7 @@ const TypeReportes = () => {
           },
           body: JSON.stringify({
             ...editingTicket,
-            tipo_equipo: editingTicket.tipo_equipo?.toLowerCase() as
-              | "compresor"
-              | "secadora",
+            tipo_equipo: editingTicket.tipo_equipo,
           }),
         },
       );
@@ -883,7 +889,6 @@ const TypeReportes = () => {
       );
 
       if (response.ok) {
-        // Navegar a la página de crear reporte según tipo de equipo
         const params = new URLSearchParams({
           folio: orden.folio,
         });
@@ -1482,7 +1487,10 @@ const TypeReportes = () => {
                           type="text"
                           value={dryerSearch}
                           onChange={(e) => handleDryerSearch(e.target.value)}
-                          onFocus={() => dryerSearchResults.length > 0 && setShowDryerResults(true)}
+                          onFocus={() =>
+                            dryerSearchResults.length > 0 &&
+                            setShowDryerResults(true)
+                          }
                           placeholder="Buscar por alias, número de serie o cliente..."
                           className="w-full px-4 py-3 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-base"
                         />
@@ -1496,27 +1504,34 @@ const TypeReportes = () => {
                                 className="w-full text-left px-4 py-3 hover:bg-purple-50 transition-colors border-b border-purple-100 last:border-b-0"
                               >
                                 <p className="font-medium text-purple-900">
-                                  {dryer.alias || dryer.numero_serie || `Secadora #${dryer.id}`}
+                                  {dryer.alias ||
+                                    dryer.numero_serie ||
+                                    `Secadora #${dryer.id}`}
                                 </p>
                                 <p className="text-sm text-purple-600">
-                                  {dryer.nombre_cliente} · Serie: {dryer.numero_serie || "—"} · {dryer.tipo}
+                                  {dryer.nombre_cliente} · Serie:{" "}
+                                  {dryer.numero_serie || "—"} · {dryer.tipo}
                                 </p>
                               </button>
                             ))}
                           </div>
                         )}
-                        {showDryerResults && dryerSearchResults.length === 0 && dryerSearch.trim() && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-purple-200 rounded-lg shadow-lg p-4 text-center">
-                            <p className="text-gray-600 text-sm mb-3">No se encontró ninguna secadora registrada</p>
-                            <button
-                              type="button"
-                              onClick={handleRegisterNewDryer}
-                              className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors"
-                            >
-                              + Registrar como nueva secadora
-                            </button>
-                          </div>
-                        )}
+                        {showDryerResults &&
+                          dryerSearchResults.length === 0 &&
+                          dryerSearch.trim() && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-purple-200 rounded-lg shadow-lg p-4 text-center">
+                              <p className="text-gray-600 text-sm mb-3">
+                                No se encontró ninguna secadora registrada
+                              </p>
+                              <button
+                                type="button"
+                                onClick={handleRegisterNewDryer}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors"
+                              >
+                                + Registrar como nueva secadora
+                              </button>
+                            </div>
+                          )}
                       </div>
 
                       {/* Selected existing dryer */}
@@ -1525,17 +1540,25 @@ const TypeReportes = () => {
                           <div className="flex justify-between items-start">
                             <div>
                               <p className="text-purple-900 font-medium">
-                                {selectedDryer.alias || `Secadora #${selectedDryer.id}`}
+                                {selectedDryer.alias ||
+                                  `Secadora #${selectedDryer.id}`}
                               </p>
                               <p className="text-purple-700 text-sm">
-                                {selectedDryer.nombre_cliente} · Serie: {selectedDryer.numero_serie || "—"} · {selectedDryer.tipo}
+                                {selectedDryer.nombre_cliente} · Serie:{" "}
+                                {selectedDryer.numero_serie || "—"} ·{" "}
+                                {selectedDryer.tipo}
                               </p>
                             </div>
                             <button
                               type="button"
-                              onClick={() => { setSelectedDryer(null); setDryerSearch(""); }}
+                              onClick={() => {
+                                setSelectedDryer(null);
+                                setDryerSearch("");
+                              }}
                               className="text-purple-400 hover:text-purple-700 text-lg leading-none"
-                            >✕</button>
+                            >
+                              ✕
+                            </button>
                           </div>
                         </div>
                       )}
@@ -1544,36 +1567,52 @@ const TypeReportes = () => {
                       {isNewDryer && (
                         <div className="p-4 bg-purple-50 rounded-lg border border-purple-200 mb-4">
                           <p className="text-purple-800 text-sm font-semibold mb-3">
-                            Nueva secadora — selecciona el cliente y completa los datos del equipo abajo
+                            Nueva secadora — selecciona el cliente y completa
+                            los datos del equipo abajo
                           </p>
                           <div className="relative">
                             <input
                               type="text"
                               value={newDryerClientSearch}
-                              onChange={(e) => { setNewDryerClientSearch(e.target.value); setShowNewDryerClientDropdown(true); }}
-                              onFocus={() => setShowNewDryerClientDropdown(true)}
+                              onChange={(e) => {
+                                setNewDryerClientSearch(e.target.value);
+                                setShowNewDryerClientDropdown(true);
+                              }}
+                              onFocus={() =>
+                                setShowNewDryerClientDropdown(true)
+                              }
                               placeholder="Buscar cliente por nombre o número..."
                               className="w-full px-4 py-2 bg-white text-blue-900 border border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-600 transition-colors text-sm"
                             />
-                            {showNewDryerClientDropdown && filteredNewDryerClients.length > 0 && (
-                              <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-purple-200 rounded-lg shadow-lg">
-                                {filteredNewDryerClients.slice(0, 20).map((client) => (
-                                  <button
-                                    key={String(client.numero_cliente)}
-                                    type="button"
-                                    onClick={() => handleSelectNewDryerClient(client)}
-                                    className="w-full text-left px-4 py-2 hover:bg-purple-50 transition-colors border-b border-purple-100 last:border-b-0 text-sm"
-                                  >
-                                    <span className="font-medium text-purple-900">{client.nombre_cliente}</span>
-                                    <span className="text-purple-600 ml-2">#{client.numero_cliente}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
+                            {showNewDryerClientDropdown &&
+                              filteredNewDryerClients.length > 0 && (
+                                <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-purple-200 rounded-lg shadow-lg">
+                                  {filteredNewDryerClients
+                                    .slice(0, 20)
+                                    .map((client) => (
+                                      <button
+                                        key={String(client.numero_cliente)}
+                                        type="button"
+                                        onClick={() =>
+                                          handleSelectNewDryerClient(client)
+                                        }
+                                        className="w-full text-left px-4 py-2 hover:bg-purple-50 transition-colors border-b border-purple-100 last:border-b-0 text-sm"
+                                      >
+                                        <span className="font-medium text-purple-900">
+                                          {client.nombre_cliente}
+                                        </span>
+                                        <span className="text-purple-600 ml-2">
+                                          #{client.numero_cliente}
+                                        </span>
+                                      </button>
+                                    ))}
+                                </div>
+                              )}
                           </div>
                           {selectedNewDryerClient && (
                             <p className="mt-2 text-purple-700 text-sm font-medium">
-                              ✓ {selectedNewDryerClient.nombre_cliente} #{selectedNewDryerClient.numero_cliente}
+                              ✓ {selectedNewDryerClient.nombre_cliente} #
+                              {selectedNewDryerClient.numero_cliente}
                             </p>
                           )}
                         </div>

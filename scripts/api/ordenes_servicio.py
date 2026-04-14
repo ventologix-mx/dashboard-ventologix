@@ -60,7 +60,7 @@ def get_all_ordenes():
                 "estado": row["estado"],
                 "fecha_creacion": row["fecha_creacion"],
                 "reporte_url": row["reporte_url"],
-                "tipo_equipo": row.get("tipo_equipo", "compresor"),
+                "tipo_equipo": row.get("tipo_equipo") or "compresor",
             }
             for row in res
         ]
@@ -117,7 +117,7 @@ def get_ordenes_by_folio(folio: str = Path(..., description="The folio of the or
                 "estado": row["estado"],
                 "fecha_creacion": row["fecha_creacion"],
                 "reporte_url": row["reporte_url"],
-                "tipo_equipo": row.get("tipo_equipo", "compresor"),
+                "tipo_equipo": row.get("tipo_equipo") or "compresor",
             }
             for row in res
         ]
