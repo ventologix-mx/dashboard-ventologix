@@ -279,6 +279,9 @@ const TypeReportes = () => {
   const [ordenFilterEquipo, setOrdenFilterEquipo] = useState<
     "todos" | "compresor" | "secadora"
   >("todos");
+  const [ordenFilterTecnico, setOrdenFilterTecnico] = useState("");
+  const [ordenFilterEstado, setOrdenFilterEstado] = useState("");
+  const [ordenFilterPrioridad, setOrdenFilterPrioridad] = useState("");
 
   // Fetch all ordenes de servicio
   const fetchAllOrdenes = async () => {
@@ -1009,7 +1012,19 @@ const TypeReportes = () => {
         ordenFilterEquipo === "todos" ||
         orden.tipo_equipo === ordenFilterEquipo;
 
-      return matchesSearch && matchesEquipo;
+      const matchesTecnico =
+        ordenFilterTecnico === "" ||
+        (ordenFilterTecnico === "null" ? !orden.id_tecnico : String(orden.id_tecnico) === ordenFilterTecnico);
+
+      const matchesEstado =
+        ordenFilterEstado === "" ||
+        orden.estado === ordenFilterEstado;
+
+      const matchesPrioridad =
+        ordenFilterPrioridad === "" ||
+        orden.prioridad === ordenFilterPrioridad;
+
+      return matchesSearch && matchesEquipo && matchesTecnico && matchesEstado && matchesPrioridad;
     });
 
     filteredOrdenes.forEach((orden) => {
@@ -1137,70 +1152,143 @@ const TypeReportes = () => {
                     <h2 className="text-xl font-semibold text-blue-900">
                       Órdenes Pendientes
                     </h2>
-                    {ordenesServicio.length > 0 && (
-                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-base font-medium">
-                        {ordenesServicio.length}{" "}
-                        {ordenesServicio.length === 1 ? "orden" : "órdenes"}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {ordenesServicio.filter(o => o.tipo_equipo === "compresor").length > 0 && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                          🔵 {ordenesServicio.filter(o => o.tipo_equipo === "compresor").length} comp.
+                        </span>
+                      )}
+                      {ordenesServicio.filter(o => o.tipo_equipo === "secadora").length > 0 && (
+                        <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                          🟣 {ordenesServicio.filter(o => o.tipo_equipo === "secadora").length} sec.
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* FILTER SECTION - Search by client and equipment type */}
+                  {/* Tabs: Todos / Compresores / Secadoras */}
+                  <div className="flex gap-2 mb-6 border-b border-blue-200 pb-0">
+                    {[
+                      { value: "todos", label: "Todos", count: ordenesServicio.length },
+                      { value: "compresor", label: "🔵 Compresores", count: ordenesServicio.filter(o => o.tipo_equipo === "compresor").length },
+                      { value: "secadora", label: "🟣 Secadoras", count: ordenesServicio.filter(o => o.tipo_equipo === "secadora").length },
+                    ].map((tab) => (
+                      <button
+                        key={tab.value}
+                        onClick={() => setOrdenFilterEquipo(tab.value as "todos" | "compresor" | "secadora")}
+                        className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border border-b-0 transition-colors -mb-px ${
+                          ordenFilterEquipo === tab.value
+                            ? tab.value === "secadora"
+                              ? "bg-white border-purple-300 border-b-white text-purple-800 relative z-10"
+                              : "bg-white border-blue-300 border-b-white text-blue-900 relative z-10"
+                            : "bg-blue-50 border-transparent text-blue-600 hover:bg-blue-100"
+                        }`}
+                      >
+                        {tab.label}
+                        <span className={`ml-1.5 px-1.5 py-0.5 rounded text-xs font-semibold ${
+                          ordenFilterEquipo === tab.value
+                            ? tab.value === "secadora" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                            : "bg-blue-200 text-blue-600"
+                        }`}>{tab.count}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* FILTER SECTION */}
                   <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-                    <h3 className="text-lg font-semibold text-blue-900 mb-4">
-                      Filtrar Órdenes
+                    <h3 className="text-sm font-semibold text-blue-900 mb-3 uppercase tracking-wide">
+                      Filtros
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                       {/* Search by client/name */}
                       <div>
-                        <label className="block text-sm font-medium text-blue-800 mb-2">
-                          Buscar por Cliente o Equipo
+                        <label className="block text-xs font-medium text-blue-800 mb-1.5">
+                          Cliente o Equipo
                         </label>
                         <input
                           type="text"
                           value={ordenFilterSearch}
                           onChange={(e) => setOrdenFilterSearch(e.target.value)}
-                          placeholder="Nombre cliente, alias o serie..."
+                          placeholder="Nombre, alias o serie..."
                           className="w-full px-3 py-2 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-sm"
                         />
                       </div>
 
-                      {/* Filter by equipment type */}
+                      {/* Filter by técnico */}
                       <div>
-                        <label className="block text-sm font-medium text-blue-800 mb-2">
-                          Tipo de Equipo
+                        <label className="block text-xs font-medium text-blue-800 mb-1.5">
+                          Técnico
                         </label>
                         <select
-                          value={ordenFilterEquipo}
-                          onChange={(e) =>
-                            setOrdenFilterEquipo(
-                              e.target.value as
-                                | "todos"
-                                | "compresor"
-                                | "secadora",
-                            )
-                          }
+                          value={ordenFilterTecnico}
+                          onChange={(e) => setOrdenFilterTecnico(e.target.value)}
                           className="w-full px-3 py-2 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-sm"
                         >
-                          <option value="todos">Todos los equipos</option>
-                          <option value="compresor">🔵 Compresores</option>
-                          <option value="secadora">🟣 Secadoras</option>
+                          <option value="">Todos los técnicos</option>
+                          <option value="null">Sin asignar</option>
+                          {technicians.map((t) => (
+                            <option key={t.id} value={String(t.id)}>{t.nombre}</option>
+                          ))}
                         </select>
                       </div>
 
-                      {/* Clear filters button */}
-                      <div className="flex items-end">
+                      {/* Filter by estado */}
+                      <div>
+                        <label className="block text-xs font-medium text-blue-800 mb-1.5">
+                          Estado
+                        </label>
+                        <select
+                          value={ordenFilterEstado}
+                          onChange={(e) => setOrdenFilterEstado(e.target.value)}
+                          className="w-full px-3 py-2 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-sm"
+                        >
+                          <option value="">Todos los estados</option>
+                          <option value="no_iniciado">No Iniciado</option>
+                          <option value="en_proceso">En Proceso</option>
+                          <option value="en_progreso">En Progreso</option>
+                          <option value="por_firmar">Por Firmar</option>
+                          <option value="completado">Completado</option>
+                        </select>
+                      </div>
+
+                      {/* Filter by prioridad */}
+                      <div>
+                        <label className="block text-xs font-medium text-blue-800 mb-1.5">
+                          Prioridad
+                        </label>
+                        <select
+                          value={ordenFilterPrioridad}
+                          onChange={(e) => setOrdenFilterPrioridad(e.target.value)}
+                          className="w-full px-3 py-2 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-sm"
+                        >
+                          <option value="">Todas las prioridades</option>
+                          <option value="urgente">🔴 Urgente</option>
+                          <option value="alta">🟠 Alta</option>
+                          <option value="media">🟡 Media</option>
+                          <option value="baja">🟢 Baja</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Active filters indicator + clear */}
+                    {(ordenFilterSearch || ordenFilterTecnico || ordenFilterEstado || ordenFilterPrioridad) && (
+                      <div className="mt-3 flex items-center justify-between">
+                        <span className="text-xs text-blue-700">
+                          Filtros activos aplicados
+                        </span>
                         <button
                           onClick={() => {
                             setOrdenFilterSearch("");
-                            setOrdenFilterEquipo("todos");
+                            setOrdenFilterTecnico("");
+                            setOrdenFilterEstado("");
+                            setOrdenFilterPrioridad("");
                           }}
-                          className="w-full px-4 py-2 bg-white text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
+                          className="text-xs px-3 py-1 bg-white text-blue-800 border border-blue-300 rounded hover:bg-blue-50 transition-colors font-medium"
                         >
-                          Limpiar Filtros
+                          Limpiar filtros
                         </button>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {loadingOrdenes ? (
@@ -2474,9 +2562,14 @@ const TypeReportes = () => {
                       <h2 className="text-xl font-semibold text-blue-900">
                         Tickets Existentes
                       </h2>
-                      {ordenesServicio.length > 0 && (
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded text-base font-medium">
-                          {ordenesServicio.length}
+                      {ordenesServicio.filter(o => o.tipo_equipo === "compresor").length > 0 && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-medium">
+                          🔵 {ordenesServicio.filter(o => o.tipo_equipo === "compresor").length}
+                        </span>
+                      )}
+                      {ordenesServicio.filter(o => o.tipo_equipo === "secadora").length > 0 && (
+                        <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-sm font-medium">
+                          🟣 {ordenesServicio.filter(o => o.tipo_equipo === "secadora").length}
                         </span>
                       )}
                     </div>
@@ -2499,7 +2592,117 @@ const TypeReportes = () => {
 
                   {/* Collapsible Content */}
                   {showTicketsList && (
-                    <div className="p-5 pt-0 border-t border-blue-200">
+                    <div className="p-5 pt-4 border-t border-blue-200">
+                      {/* Tabs: Todos / Compresores / Secadoras */}
+                      <div className="flex gap-2 mb-4 border-b border-blue-200 pb-0">
+                        {[
+                          { value: "todos", label: "Todos", count: ordenesServicio.length },
+                          { value: "compresor", label: "🔵 Compresores", count: ordenesServicio.filter(o => o.tipo_equipo === "compresor").length },
+                          { value: "secadora", label: "🟣 Secadoras", count: ordenesServicio.filter(o => o.tipo_equipo === "secadora").length },
+                        ].map((tab) => (
+                          <button
+                            key={tab.value}
+                            onClick={() => setOrdenFilterEquipo(tab.value as "todos" | "compresor" | "secadora")}
+                            className={`px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors -mb-px ${
+                              ordenFilterEquipo === tab.value
+                                ? tab.value === "secadora"
+                                  ? "bg-white border-purple-300 text-purple-800 relative z-10"
+                                  : "bg-white border-blue-300 text-blue-900 relative z-10"
+                                : "bg-blue-50 border-transparent text-blue-600 hover:bg-blue-100"
+                            }`}
+                          >
+                            {tab.label}
+                            <span className={`ml-1.5 px-1.5 py-0.5 rounded text-xs font-semibold ${
+                              ordenFilterEquipo === tab.value
+                                ? tab.value === "secadora" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                                : "bg-blue-200 text-blue-600"
+                            }`}>{tab.count}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Filters */}
+                      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-blue-800 mb-1">
+                              Cliente o Equipo
+                            </label>
+                            <input
+                              type="text"
+                              value={ordenFilterSearch}
+                              onChange={(e) => setOrdenFilterSearch(e.target.value)}
+                              placeholder="Nombre, alias o serie..."
+                              className="w-full px-3 py-1.5 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-blue-800 mb-1">
+                              Técnico
+                            </label>
+                            <select
+                              value={ordenFilterTecnico}
+                              onChange={(e) => setOrdenFilterTecnico(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 text-sm"
+                            >
+                              <option value="">Todos los técnicos</option>
+                              <option value="null">Sin asignar</option>
+                              {technicians.map((t) => (
+                                <option key={t.id} value={String(t.id)}>{t.nombre}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-blue-800 mb-1">
+                              Estado
+                            </label>
+                            <select
+                              value={ordenFilterEstado}
+                              onChange={(e) => setOrdenFilterEstado(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 text-sm"
+                            >
+                              <option value="">Todos los estados</option>
+                              <option value="no_iniciado">No Iniciado</option>
+                              <option value="en_proceso">En Proceso</option>
+                              <option value="en_progreso">En Progreso</option>
+                              <option value="por_firmar">Por Firmar</option>
+                              <option value="completado">Completado</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-blue-800 mb-1">
+                              Prioridad
+                            </label>
+                            <select
+                              value={ordenFilterPrioridad}
+                              onChange={(e) => setOrdenFilterPrioridad(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 text-sm"
+                            >
+                              <option value="">Todas las prioridades</option>
+                              <option value="urgente">🔴 Urgente</option>
+                              <option value="alta">🟠 Alta</option>
+                              <option value="media">🟡 Media</option>
+                              <option value="baja">🟢 Baja</option>
+                            </select>
+                          </div>
+                        </div>
+                        {(ordenFilterSearch || ordenFilterTecnico || ordenFilterEstado || ordenFilterPrioridad) && (
+                          <div className="mt-2 flex justify-end">
+                            <button
+                              onClick={() => {
+                                setOrdenFilterSearch("");
+                                setOrdenFilterTecnico("");
+                                setOrdenFilterEstado("");
+                                setOrdenFilterPrioridad("");
+                              }}
+                              className="text-xs px-3 py-1 bg-white text-blue-800 border border-blue-300 rounded hover:bg-blue-50 transition-colors font-medium"
+                            >
+                              Limpiar filtros
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                       {loadingOrdenes ? (
                         <div className="text-center py-8">
                           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-800 mx-auto"></div>
