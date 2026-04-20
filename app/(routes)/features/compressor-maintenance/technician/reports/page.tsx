@@ -1356,6 +1356,64 @@ const TypeReportes = () => {
                     )}
                   </div>
 
+                  {/* FILTER SECTION - Search by client and equipment type */}
+                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                    <h3 className="text-lg font-semibold text-blue-900 mb-4">
+                      Filtrar Órdenes
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Search by client/name */}
+                      <div>
+                        <label className="block text-sm font-medium text-blue-800 mb-2">
+                          Buscar por Cliente o Equipo
+                        </label>
+                        <input
+                          type="text"
+                          value={ordenFilterSearch}
+                          onChange={(e) => setOrdenFilterSearch(e.target.value)}
+                          placeholder="Nombre cliente, alias o serie..."
+                          className="w-full px-3 py-2 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-sm"
+                        />
+                      </div>
+
+                      {/* Filter by equipment type */}
+                      <div>
+                        <label className="block text-sm font-medium text-blue-800 mb-2">
+                          Tipo de Equipo
+                        </label>
+                        <select
+                          value={ordenFilterEquipo}
+                          onChange={(e) =>
+                            setOrdenFilterEquipo(
+                              e.target.value as
+                                | "todos"
+                                | "compresor"
+                                | "secadora",
+                            )
+                          }
+                          className="w-full px-3 py-2 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-sm"
+                        >
+                          <option value="todos">Todos los equipos</option>
+                          <option value="compresor">🔵 Compresores</option>
+                          <option value="secadora">🟣 Secadoras</option>
+                        </select>
+                      </div>
+
+                      {/* Clear filters button */}
+                      <div className="flex items-end">
+                        <button
+                          onClick={() => {
+                            setOrdenFilterSearch("");
+                            setOrdenFilterEquipo("todos");
+                          }}
+                          className="w-full px-4 py-2 bg-white text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
+                        >
+                          Limpiar Filtros
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   {loadingOrdenes ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-800 mx-auto mb-3"></div>
