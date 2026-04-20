@@ -30,9 +30,11 @@ def get_all_secadoras():
         conn = _get_conn()
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
-            """SELECT s.*, cl.nombre_cliente
+            """SELECT s.*,
+                      (SELECT cl.nombre_cliente FROM clientes cl
+                       WHERE cl.numero_cliente = s.numero_cliente
+                       LIMIT 1) AS nombre_cliente
                FROM secadores s
-               LEFT JOIN clientes cl ON cl.numero_cliente = s.numero_cliente
                ORDER BY s.id DESC"""
         )
         rows = cursor.fetchall()
