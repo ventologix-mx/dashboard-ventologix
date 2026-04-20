@@ -416,7 +416,13 @@ const TypeReportes = () => {
       );
       if (res.ok) {
         const data = await res.json();
-        setDryerSearchResults(data.data || []);
+        const seen = new Set();
+        const unique = (data.data || []).filter((d: SecadoraSearchResult) => {
+          if (seen.has(d.id)) return false;
+          seen.add(d.id);
+          return true;
+        });
+        setDryerSearchResults(unique);
         setShowDryerResults(true);
       }
     } catch (err) {
@@ -737,7 +743,9 @@ const TypeReportes = () => {
         fecha_creacion: new Date().toISOString(),
         reporte_url: "",
         tipo_equipo: tipoEquipo,
-        id_tecnico: ticketData.technician ? parseInt(ticketData.technician) : null,
+        id_tecnico: ticketData.technician
+          ? parseInt(ticketData.technician)
+          : null,
       };
 
       console.log("Sending ticket data:", ordenData);
@@ -1014,17 +1022,23 @@ const TypeReportes = () => {
 
       const matchesTecnico =
         ordenFilterTecnico === "" ||
-        (ordenFilterTecnico === "null" ? !orden.id_tecnico : String(orden.id_tecnico) === ordenFilterTecnico);
+        (ordenFilterTecnico === "null"
+          ? !orden.id_tecnico
+          : String(orden.id_tecnico) === ordenFilterTecnico);
 
       const matchesEstado =
-        ordenFilterEstado === "" ||
-        orden.estado === ordenFilterEstado;
+        ordenFilterEstado === "" || orden.estado === ordenFilterEstado;
 
       const matchesPrioridad =
-        ordenFilterPrioridad === "" ||
-        orden.prioridad === ordenFilterPrioridad;
+        ordenFilterPrioridad === "" || orden.prioridad === ordenFilterPrioridad;
 
-      return matchesSearch && matchesEquipo && matchesTecnico && matchesEstado && matchesPrioridad;
+      return (
+        matchesSearch &&
+        matchesEquipo &&
+        matchesTecnico &&
+        matchesEstado &&
+        matchesPrioridad
+      );
     });
 
     filteredOrdenes.forEach((orden) => {
@@ -1153,14 +1167,30 @@ const TypeReportes = () => {
                       Órdenes Pendientes
                     </h2>
                     <div className="flex items-center gap-2">
-                      {ordenesServicio.filter(o => o.tipo_equipo === "compresor").length > 0 && (
+                      {ordenesServicio.filter(
+                        (o) => o.tipo_equipo === "compresor",
+                      ).length > 0 && (
                         <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                          🔵 {ordenesServicio.filter(o => o.tipo_equipo === "compresor").length} comp.
+                          🔵{" "}
+                          {
+                            ordenesServicio.filter(
+                              (o) => o.tipo_equipo === "compresor",
+                            ).length
+                          }{" "}
+                          comp.
                         </span>
                       )}
-                      {ordenesServicio.filter(o => o.tipo_equipo === "secadora").length > 0 && (
+                      {ordenesServicio.filter(
+                        (o) => o.tipo_equipo === "secadora",
+                      ).length > 0 && (
                         <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
-                          🟣 {ordenesServicio.filter(o => o.tipo_equipo === "secadora").length} sec.
+                          🟣{" "}
+                          {
+                            ordenesServicio.filter(
+                              (o) => o.tipo_equipo === "secadora",
+                            ).length
+                          }{" "}
+                          sec.
                         </span>
                       )}
                     </div>
@@ -1169,13 +1199,33 @@ const TypeReportes = () => {
                   {/* Tabs: Todos / Compresores / Secadoras */}
                   <div className="flex gap-2 mb-6 border-b border-blue-200 pb-0">
                     {[
-                      { value: "todos", label: "Todos", count: ordenesServicio.length },
-                      { value: "compresor", label: "🔵 Compresores", count: ordenesServicio.filter(o => o.tipo_equipo === "compresor").length },
-                      { value: "secadora", label: "🟣 Secadoras", count: ordenesServicio.filter(o => o.tipo_equipo === "secadora").length },
+                      {
+                        value: "todos",
+                        label: "Todos",
+                        count: ordenesServicio.length,
+                      },
+                      {
+                        value: "compresor",
+                        label: "🔵 Compresores",
+                        count: ordenesServicio.filter(
+                          (o) => o.tipo_equipo === "compresor",
+                        ).length,
+                      },
+                      {
+                        value: "secadora",
+                        label: "🟣 Secadoras",
+                        count: ordenesServicio.filter(
+                          (o) => o.tipo_equipo === "secadora",
+                        ).length,
+                      },
                     ].map((tab) => (
                       <button
                         key={tab.value}
-                        onClick={() => setOrdenFilterEquipo(tab.value as "todos" | "compresor" | "secadora")}
+                        onClick={() =>
+                          setOrdenFilterEquipo(
+                            tab.value as "todos" | "compresor" | "secadora",
+                          )
+                        }
                         className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border border-b-0 transition-colors -mb-px ${
                           ordenFilterEquipo === tab.value
                             ? tab.value === "secadora"
@@ -1185,11 +1235,17 @@ const TypeReportes = () => {
                         }`}
                       >
                         {tab.label}
-                        <span className={`ml-1.5 px-1.5 py-0.5 rounded text-xs font-semibold ${
-                          ordenFilterEquipo === tab.value
-                            ? tab.value === "secadora" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                            : "bg-blue-200 text-blue-600"
-                        }`}>{tab.count}</span>
+                        <span
+                          className={`ml-1.5 px-1.5 py-0.5 rounded text-xs font-semibold ${
+                            ordenFilterEquipo === tab.value
+                              ? tab.value === "secadora"
+                                ? "bg-purple-100 text-purple-700"
+                                : "bg-blue-100 text-blue-700"
+                              : "bg-blue-200 text-blue-600"
+                          }`}
+                        >
+                          {tab.count}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -1221,13 +1277,17 @@ const TypeReportes = () => {
                         </label>
                         <select
                           value={ordenFilterTecnico}
-                          onChange={(e) => setOrdenFilterTecnico(e.target.value)}
+                          onChange={(e) =>
+                            setOrdenFilterTecnico(e.target.value)
+                          }
                           className="w-full px-3 py-2 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-sm"
                         >
                           <option value="">Todos los técnicos</option>
                           <option value="null">Sin asignar</option>
                           {technicians.map((t) => (
-                            <option key={t.id} value={String(t.id)}>{t.nombre}</option>
+                            <option key={t.id} value={String(t.id)}>
+                              {t.nombre}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1258,7 +1318,9 @@ const TypeReportes = () => {
                         </label>
                         <select
                           value={ordenFilterPrioridad}
-                          onChange={(e) => setOrdenFilterPrioridad(e.target.value)}
+                          onChange={(e) =>
+                            setOrdenFilterPrioridad(e.target.value)
+                          }
                           className="w-full px-3 py-2 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-sm"
                         >
                           <option value="">Todas las prioridades</option>
@@ -1271,7 +1333,10 @@ const TypeReportes = () => {
                     </div>
 
                     {/* Active filters indicator + clear */}
-                    {(ordenFilterSearch || ordenFilterTecnico || ordenFilterEstado || ordenFilterPrioridad) && (
+                    {(ordenFilterSearch ||
+                      ordenFilterTecnico ||
+                      ordenFilterEstado ||
+                      ordenFilterPrioridad) && (
                       <div className="mt-3 flex items-center justify-between">
                         <span className="text-xs text-blue-700">
                           Filtros activos aplicados
@@ -1514,83 +1579,6 @@ const TypeReportes = () => {
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Botones de Navegación */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                {/* Tabla de Mantenimientos */}
-                <button
-                  className="w-full p-5 bg-white border border-blue-200 rounded-lg hover:border-blue-800 hover:shadow-md transition-all text-left"
-                  onClick={() =>
-                    router.push("/features/compressor-maintenance/maintenance")
-                  }
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-blue-800"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-blue-900 text-lg">
-                        Tabla de Mantenimientos
-                      </h3>
-                      <p className="text-blue-600 text-base">
-                        Gestiona mantenimientos activos
-                      </p>
-                    </div>
-                  </div>
-                </button>
-
-                {/* Reportes */}
-                <button
-                  className="w-full p-5 bg-white border border-blue-200 rounded-lg hover:border-blue-800 hover:shadow-md transition-all text-left"
-                  onClick={() =>
-                    router.push("/features/compressor-maintenance/reports/")
-                  }
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-blue-800"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-blue-900 text-lg">
-                        Reportes
-                      </h3>
-                      <p className="text-blue-600 text-base">
-                        Ver historial de reportes
-                      </p>
-                    </div>
-                  </div>
-                </button>
               </div>
             </>
           )}
@@ -2525,13 +2513,6 @@ const TypeReportes = () => {
                           Cancelar
                         </button>
                       </div>
-
-                      <div className="mt-4 p-4 bg-blue-100 border border-blue-200 rounded-lg">
-                        <p className="text-blue-800 text-base">
-                          El ticket se creará con estado &quot;No Iniciado&quot;.
-                          El técnico puede asignarse ahora o editarse posteriormente.
-                        </p>
-                      </div>
                     </form>
                   </div>
                 </div>
@@ -2562,14 +2543,28 @@ const TypeReportes = () => {
                       <h2 className="text-xl font-semibold text-blue-900">
                         Tickets Existentes
                       </h2>
-                      {ordenesServicio.filter(o => o.tipo_equipo === "compresor").length > 0 && (
+                      {ordenesServicio.filter(
+                        (o) => o.tipo_equipo === "compresor",
+                      ).length > 0 && (
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-medium">
-                          🔵 {ordenesServicio.filter(o => o.tipo_equipo === "compresor").length}
+                          🔵{" "}
+                          {
+                            ordenesServicio.filter(
+                              (o) => o.tipo_equipo === "compresor",
+                            ).length
+                          }
                         </span>
                       )}
-                      {ordenesServicio.filter(o => o.tipo_equipo === "secadora").length > 0 && (
+                      {ordenesServicio.filter(
+                        (o) => o.tipo_equipo === "secadora",
+                      ).length > 0 && (
                         <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-sm font-medium">
-                          🟣 {ordenesServicio.filter(o => o.tipo_equipo === "secadora").length}
+                          🟣{" "}
+                          {
+                            ordenesServicio.filter(
+                              (o) => o.tipo_equipo === "secadora",
+                            ).length
+                          }
                         </span>
                       )}
                     </div>
@@ -2596,13 +2591,33 @@ const TypeReportes = () => {
                       {/* Tabs: Todos / Compresores / Secadoras */}
                       <div className="flex gap-2 mb-4 border-b border-blue-200 pb-0">
                         {[
-                          { value: "todos", label: "Todos", count: ordenesServicio.length },
-                          { value: "compresor", label: "🔵 Compresores", count: ordenesServicio.filter(o => o.tipo_equipo === "compresor").length },
-                          { value: "secadora", label: "🟣 Secadoras", count: ordenesServicio.filter(o => o.tipo_equipo === "secadora").length },
+                          {
+                            value: "todos",
+                            label: "Todos",
+                            count: ordenesServicio.length,
+                          },
+                          {
+                            value: "compresor",
+                            label: "🔵 Compresores",
+                            count: ordenesServicio.filter(
+                              (o) => o.tipo_equipo === "compresor",
+                            ).length,
+                          },
+                          {
+                            value: "secadora",
+                            label: "🟣 Secadoras",
+                            count: ordenesServicio.filter(
+                              (o) => o.tipo_equipo === "secadora",
+                            ).length,
+                          },
                         ].map((tab) => (
                           <button
                             key={tab.value}
-                            onClick={() => setOrdenFilterEquipo(tab.value as "todos" | "compresor" | "secadora")}
+                            onClick={() =>
+                              setOrdenFilterEquipo(
+                                tab.value as "todos" | "compresor" | "secadora",
+                              )
+                            }
                             className={`px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors -mb-px ${
                               ordenFilterEquipo === tab.value
                                 ? tab.value === "secadora"
@@ -2612,11 +2627,17 @@ const TypeReportes = () => {
                             }`}
                           >
                             {tab.label}
-                            <span className={`ml-1.5 px-1.5 py-0.5 rounded text-xs font-semibold ${
-                              ordenFilterEquipo === tab.value
-                                ? tab.value === "secadora" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                                : "bg-blue-200 text-blue-600"
-                            }`}>{tab.count}</span>
+                            <span
+                              className={`ml-1.5 px-1.5 py-0.5 rounded text-xs font-semibold ${
+                                ordenFilterEquipo === tab.value
+                                  ? tab.value === "secadora"
+                                    ? "bg-purple-100 text-purple-700"
+                                    : "bg-blue-100 text-blue-700"
+                                  : "bg-blue-200 text-blue-600"
+                              }`}
+                            >
+                              {tab.count}
+                            </span>
                           </button>
                         ))}
                       </div>
@@ -2631,7 +2652,9 @@ const TypeReportes = () => {
                             <input
                               type="text"
                               value={ordenFilterSearch}
-                              onChange={(e) => setOrdenFilterSearch(e.target.value)}
+                              onChange={(e) =>
+                                setOrdenFilterSearch(e.target.value)
+                              }
                               placeholder="Nombre, alias o serie..."
                               className="w-full px-3 py-1.5 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 text-sm"
                             />
@@ -2642,13 +2665,17 @@ const TypeReportes = () => {
                             </label>
                             <select
                               value={ordenFilterTecnico}
-                              onChange={(e) => setOrdenFilterTecnico(e.target.value)}
+                              onChange={(e) =>
+                                setOrdenFilterTecnico(e.target.value)
+                              }
                               className="w-full px-3 py-1.5 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 text-sm"
                             >
                               <option value="">Todos los técnicos</option>
                               <option value="null">Sin asignar</option>
                               {technicians.map((t) => (
-                                <option key={t.id} value={String(t.id)}>{t.nombre}</option>
+                                <option key={t.id} value={String(t.id)}>
+                                  {t.nombre}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -2658,7 +2685,9 @@ const TypeReportes = () => {
                             </label>
                             <select
                               value={ordenFilterEstado}
-                              onChange={(e) => setOrdenFilterEstado(e.target.value)}
+                              onChange={(e) =>
+                                setOrdenFilterEstado(e.target.value)
+                              }
                               className="w-full px-3 py-1.5 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 text-sm"
                             >
                               <option value="">Todos los estados</option>
@@ -2675,7 +2704,9 @@ const TypeReportes = () => {
                             </label>
                             <select
                               value={ordenFilterPrioridad}
-                              onChange={(e) => setOrdenFilterPrioridad(e.target.value)}
+                              onChange={(e) =>
+                                setOrdenFilterPrioridad(e.target.value)
+                              }
                               className="w-full px-3 py-1.5 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 text-sm"
                             >
                               <option value="">Todas las prioridades</option>
@@ -2686,7 +2717,10 @@ const TypeReportes = () => {
                             </select>
                           </div>
                         </div>
-                        {(ordenFilterSearch || ordenFilterTecnico || ordenFilterEstado || ordenFilterPrioridad) && (
+                        {(ordenFilterSearch ||
+                          ordenFilterTecnico ||
+                          ordenFilterEstado ||
+                          ordenFilterPrioridad) && (
                           <div className="mt-2 flex justify-end">
                             <button
                               onClick={() => {
@@ -2824,7 +2858,11 @@ const TypeReportes = () => {
                                               Técnico:
                                             </span>{" "}
                                             {orden.id_tecnico
-                                              ? technicians.find((t) => t.id === orden.id_tecnico)?.nombre ?? `ID ${orden.id_tecnico}`
+                                              ? (technicians.find(
+                                                  (t) =>
+                                                    t.id === orden.id_tecnico,
+                                                )?.nombre ??
+                                                `ID ${orden.id_tecnico}`)
                                               : "Sin asignar"}
                                           </span>
                                         </div>
@@ -3085,7 +3123,9 @@ const TypeReportes = () => {
                       onChange={(e) =>
                         setEditingTicket({
                           ...editingTicket,
-                          id_tecnico: e.target.value ? parseInt(e.target.value) : null,
+                          id_tecnico: e.target.value
+                            ? parseInt(e.target.value)
+                            : null,
                         })
                       }
                       className="w-full px-4 py-3 bg-white text-blue-900 border border-blue-300 rounded-lg focus:outline-none focus:border-blue-800 focus:ring-1 focus:ring-blue-800 transition-colors text-base"
