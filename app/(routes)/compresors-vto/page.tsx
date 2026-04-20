@@ -976,8 +976,8 @@ const Compresors = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {secadoras.map((secadora) => (
-                        <tr key={secadora.id} className="hover:bg-purple-50 transition-colors">
+                      {secadoras.map((secadora, index) => (
+                        <tr key={`${secadora.id}-${index}`} className="hover:bg-purple-50 transition-colors">
                           <td className="border border-gray-300 p-3 text-gray-700">
                             {secadora.nombre_cliente || `#${secadora.numero_cliente ?? "—"}`}
                           </td>
