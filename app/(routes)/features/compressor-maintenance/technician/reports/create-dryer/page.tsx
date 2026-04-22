@@ -71,7 +71,7 @@ const statusOptions = [
 ];
 
 function DryerReportForm() {
-  const { getAccessTokenSilently, isAuthenticated, isLoading } = useAuth0();
+  const { isAuthenticated, isLoading } = useAuth0();
   const searchParams = useSearchParams();
   const folioParam = searchParams.get("folio");
   const router = useRouter();
@@ -294,10 +294,7 @@ function DryerReportForm() {
 
         // 2. Then try loading existing dryer report (overrides order data if exists)
         try {
-          const token = await getAccessTokenSilently();
-          const res = await fetch(`${URL_API}/reporte_secadora/${folioParam}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const res = await fetch(`${URL_API}/reporte_secadora/${folioParam}`);
           if (res.ok) {
             const data = await res.json();
             setFormData((prev) => ({ ...prev, ...data }));
@@ -313,7 +310,7 @@ function DryerReportForm() {
       }
     };
     loadReport();
-  }, [folioParam, isAuthenticated, getAccessTokenSilently]);
+  }, [folioParam, isAuthenticated]);
 
   // Handle categorized photo uploads
   const handleCategorizedPhotoChange = (
@@ -344,8 +341,6 @@ function DryerReportForm() {
     if (!isAuthenticated) return;
     setIsSaving(true);
     try {
-      const token = await getAccessTokenSilently();
-
       // Ensure folio exists before saving
       let currentFormData = formData;
       if (!currentFormData.folio) {
@@ -372,7 +367,6 @@ function DryerReportForm() {
 
       const res = await fetch(`${URL_API}/reporte_secadora/guardar`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
         body: form,
       });
 
@@ -400,10 +394,7 @@ function DryerReportForm() {
     }
     setLoading(true);
     try {
-      const token = await getAccessTokenSilently();
-      const res = await fetch(`${URL_API}/reporte_secadora/pdf/${folio}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`${URL_API}/reporte_secadora/pdf/${folio}`);
       if (res.ok) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);

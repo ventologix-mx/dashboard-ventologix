@@ -91,6 +91,14 @@ async def crear_reporte_mantenimiento(data: ReporteMantenimiento):
                 (data.folio,)
             )
 
+            # Update reportes_status: mark mantenimiento as done
+            cursor.execute(
+                """UPDATE reportes_status
+                   SET mantenimiento = 1
+                   WHERE folio = %s""",
+                (data.folio,)
+            )
+
             conn.commit()
             cursor.close()
             conn.close()
@@ -152,6 +160,14 @@ async def crear_reporte_mantenimiento(data: ReporteMantenimiento):
             # Update estado in reportes table
             cursor.execute(
                 "UPDATE reportes SET estado = 'mantenimiento' WHERE folio = %s",
+                (data.folio,)
+            )
+
+            # Update reportes_status: mark mantenimiento as done
+            cursor.execute(
+                """UPDATE reportes_status
+                   SET mantenimiento = 1
+                   WHERE folio = %s""",
                 (data.folio,)
             )
 

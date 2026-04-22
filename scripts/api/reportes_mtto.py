@@ -193,6 +193,13 @@ def save_pre_mantenimiento(data: PreMantenimientoRequest):
                 (data.folio, id_cliente)
             )
 
+            # Create the status tracking record
+            cursor.execute(
+                """INSERT IGNORE INTO reportes_status (folio, pre_mantenimiento)
+                   VALUES (%s, 1)""",
+                (data.folio,)
+            )
+
         conn.commit()
         cursor.close()
         conn.close()
