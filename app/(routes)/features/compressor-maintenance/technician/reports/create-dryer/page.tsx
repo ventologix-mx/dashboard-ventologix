@@ -248,16 +248,13 @@ function DryerReportForm() {
       if (!folioParam || !isAuthenticated) return;
       setLoading(true);
       try {
-        const token = await getAccessTokenSilently();
-
-        // 1. Try loading from order to pre-fill client info
+        // 1. Try loading from order to pre-fill client info (no auth required)
         try {
           const orderRes = await fetch(`${URL_API}/ordenes/${folioParam}`);
           if (orderRes.ok) {
             const orderResult = await orderRes.json();
             if (orderResult.data?.length > 0) {
               const orden = orderResult.data[0];
-              // Pre-fill client info from order
               setFormData((prev) => ({
                 ...prev,
                 folio: orden.folio,
@@ -266,7 +263,6 @@ function DryerReportForm() {
                 equipo: orden.alias_compresor || "",
                 no_serie: orden.numero_serie || "",
               }));
-              // Also fetch client details for RFC, direccion
               if (orden.numero_cliente) {
                 try {
                   const clientRes = await fetch(`${URL_API}/clients/`);
@@ -297,13 +293,18 @@ function DryerReportForm() {
         }
 
         // 2. Then try loading existing dryer report (overrides order data if exists)
-        const res = await fetch(`${URL_API}/reporte_secadora/${folioParam}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setFormData((prev) => ({ ...prev, ...data }));
-          setSavedFolio(folioParam);
+        try {
+          const token = await getAccessTokenSilently();
+          const res = await fetch(`${URL_API}/reporte_secadora/${folioParam}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setFormData((prev) => ({ ...prev, ...data }));
+            setSavedFolio(folioParam);
+          }
+        } catch (error) {
+          console.error("Error cargando reporte existente:", error);
         }
       } catch (error) {
         console.error("Error cargando reporte:", error);
@@ -501,7 +502,8 @@ function DryerReportForm() {
                     name="rfc"
                     value={formData.rfc}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    readOnly
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -513,7 +515,8 @@ function DryerReportForm() {
                     name="direccion"
                     value={formData.direccion}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    readOnly
                   />
                 </div>
                 <div>
