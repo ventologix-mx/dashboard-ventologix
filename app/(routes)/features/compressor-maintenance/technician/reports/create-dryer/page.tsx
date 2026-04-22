@@ -375,11 +375,13 @@ function DryerReportForm() {
         setSavedFolio(data.folio || formData.folio);
         alert("Reporte guardado exitosamente");
       } else {
-        throw new Error("Error al guardar");
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || `Error ${res.status} al guardar`);
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("Error al guardar el reporte");
+      const msg = error instanceof Error ? error.message : "Error desconocido";
+      alert(`Error al guardar el reporte:\n${msg}`);
     } finally {
       setIsSaving(false);
     }

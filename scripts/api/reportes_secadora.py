@@ -158,11 +158,11 @@ async def guardar_reporte_secadora(
                 photos_by_category[category] = []
                 for f in file_list:
                     content = await f.read()
-                    photos_by_category[category].append({
-                        "filename": f.filename,
-                        "content": content,
-                        "content_type": f.content_type or "image/jpeg",
-                    })
+                    photos_by_category[category].append((
+                        f.filename,
+                        content,
+                        f.content_type or "image/jpeg",
+                    ))
 
         fotos_urls = {}
         if photos_by_category:
