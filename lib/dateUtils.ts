@@ -4,7 +4,8 @@
  * which displays as the previous day in negative UTC offsets.
  */
 export function parseLocalDate(dateString: string): Date {
-  const [y, m, d] = dateString.split("-").map(Number);
+  const datePart = dateString.slice(0, 10);
+  const [y, m, d] = datePart.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
