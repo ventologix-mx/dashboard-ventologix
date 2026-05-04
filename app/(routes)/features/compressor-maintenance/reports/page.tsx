@@ -364,40 +364,40 @@ const Reports = () => {
           Reportes de Mantenimiento
         </h1>
 
-        {/* Tabs — shown when there are dryer reports (all roles) */}
-        {(isClientRole
-          ? flatDryerReports.length > 0
-          : dryerReportsByClient.length > 0) && (
-          <div className="flex space-x-1 bg-gray-200 rounded-lg p-1 mb-6 max-w-md">
-            <button
-              onClick={() => setActiveTab("compresores")}
-              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "compresores"
-                  ? "bg-white text-blue-700 shadow-sm"
-                  : "text-gray-600 hover:text-gray-800"
-              }`}
-            >
-              Compresores
-            </button>
-            <button
-              onClick={() => setActiveTab("secadoras")}
-              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "secadoras"
-                  ? "bg-white text-cyan-700 shadow-sm"
-                  : "text-gray-600 hover:text-gray-800"
-              }`}
-            >
-              Secadoras (
-              {isClientRole
-                ? flatDryerReports.length
-                : dryerReportsByClient.reduce(
-                    (sum, g) => sum + g.reports.length,
-                    0,
-                  )}
-              )
-            </button>
-          </div>
-        )}
+        {/* Tabs — always shown so clients can navigate between equipment types */}
+        <div className="flex space-x-1 bg-gray-200 rounded-lg p-1 mb-6 max-w-md">
+          <button
+            onClick={() => setActiveTab("compresores")}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "compresores"
+                ? "bg-white text-blue-700 shadow-sm"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            Compresores (
+            {isClientRole
+              ? flatReports.length
+              : reportsByClient.reduce((sum, g) => sum + g.reports.length, 0)}
+            )
+          </button>
+          <button
+            onClick={() => setActiveTab("secadoras")}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "secadoras"
+                ? "bg-white text-cyan-700 shadow-sm"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            Secadoras (
+            {isClientRole
+              ? flatDryerReports.length
+              : dryerReportsByClient.reduce(
+                  (sum, g) => sum + g.reports.length,
+                  0,
+                )}
+            )
+          </button>
+        </div>
 
         {/* Reports list */}
         <div
@@ -640,6 +640,12 @@ const Reports = () => {
         {/* Dryer Reports Section - Flat list for clients */}
         {isClientRole && activeTab === "secadoras" && (
           <div className="bg-white rounded-lg shadow-md overflow-hidden p-6">
+            {flatDryerReports.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="mx-auto text-gray-300 mb-4" size={48} />
+                <p className="text-gray-500">No hay reportes de secadoras</p>
+              </div>
+            ) : (
             <div className="space-y-3">
               {flatDryerReports.map((report) => (
                 <div
@@ -725,6 +731,7 @@ const Reports = () => {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
