@@ -61,9 +61,9 @@ function FillReport() {
   // Guard to prevent re-loading data on re-renders
   const dataLoadedRef = useRef<string | null>(null);
 
-  const [showMaintenanceSection, setShowMaintenanceSection] = useState(false);
-  const [showPostMaintenanceSection, setShowPostMaintenanceSection] =
-    useState(false);
+  const [showMaintenanceSection] = useState(true);
+  const [showPostMaintenanceSection] = useState(true);
+  const [saveCompressorInfo, setSaveCompressorInfo] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -432,8 +432,7 @@ function FillReport() {
           }));
         }
 
-        // Show maintenance section if data exists
-        setShowMaintenanceSection(true);
+        // maintenance section is always visible
       }
     } catch (error) {
       console.error("Error loading maintenance data:", error);
@@ -1116,30 +1115,6 @@ function FillReport() {
     return () => clearInterval(autoSaveInterval);
   }, [formData.folio, hasUnsavedChanges, handleSaveDraft]);
 
-  const handleNextSection = async () => {
-    if (!showMaintenanceSection) {
-      // Transition: Pre-maintenance → Maintenance
-      await savePreMaintenanceData();
-      setShowMaintenanceSection(true);
-      setTimeout(() => {
-        const section = document.getElementById("maintenance-section");
-        if (section) {
-          section.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 100);
-    } else if (!showPostMaintenanceSection) {
-      // Transition: Maintenance → Post-maintenance
-      await handleSaveDraft(false);
-      setShowPostMaintenanceSection(true);
-      setTimeout(() => {
-        const section = document.getElementById("post-maintenance-section");
-        if (section) {
-          section.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 100);
-    }
-  };
-
   const handleMaintenanceToggle = (index: number) => {
     const updatedMantenimientos = [...maintenanceData.mantenimientos];
     updatedMantenimientos[index].realizado =
@@ -1750,59 +1725,214 @@ function FillReport() {
 
           {/* Sección Compresor */}
           <div className="p-4">
-            <h3 className="font-bold text-blue-900 mb-4 text-lg">
-              INFORMACIÓN DEL COMPRESOR
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-blue-900 text-lg">
+                INFORMACIÓN DEL COMPRESOR
+              </h3>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={saveCompressorInfo}
+                  onChange={(e) => setSaveCompressorInfo(e.target.checked)}
+                  className="w-4 h-4 accent-blue-700"
+                />
+                <span className="text-sm font-medium text-blue-800">
+                  Guardar info del compresor
+                </span>
+              </label>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-m font-medium text-blue-800 mb-1">
                   Alias Compresor
                 </label>
-                <p className="text-gray-800 font-semibold">
-                  {formData.compressorAlias || "N/A"}
-                </p>
+                {saveCompressorInfo ? (
+                  <input
+                    type="text"
+                    value={formData.compressorAlias || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        compressorAlias: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-blue-900 text-sm focus:outline-none focus:border-blue-700"
+                  />
+                ) : (
+                  <p className="text-gray-800 font-semibold">
+                    {formData.compressorAlias || "N/A"}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-m font-medium text-blue-800 mb-1">
                   Número de Serie
                 </label>
-                <p className="text-gray-800 font-semibold">
-                  {formData.serialNumber || "N/A"}
-                </p>
+                {saveCompressorInfo ? (
+                  <input
+                    type="text"
+                    value={formData.serialNumber || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        serialNumber: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-blue-900 text-sm focus:outline-none focus:border-blue-700"
+                  />
+                ) : (
+                  <p className="text-gray-800 font-semibold">
+                    {formData.serialNumber || "N/A"}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-m font-medium text-blue-800 mb-1">
                   HP
                 </label>
-                <p className="text-gray-800 font-semibold">
-                  {formData.equipmentHp || "N/A"}
-                </p>
+                {saveCompressorInfo ? (
+                  <input
+                    type="text"
+                    value={formData.equipmentHp || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        equipmentHp: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-blue-900 text-sm focus:outline-none focus:border-blue-700"
+                  />
+                ) : (
+                  <p className="text-gray-800 font-semibold">
+                    {formData.equipmentHp || "N/A"}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-m font-medium text-blue-800 mb-1">
                   Tipo
                 </label>
-                <p className="text-gray-800 font-semibold">
-                  {formData.compressorType || "N/A"}
-                </p>
+                {saveCompressorInfo ? (
+                  <select
+                    value={formData.compressorType || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        compressorType: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-blue-900 text-sm focus:outline-none focus:border-blue-700"
+                  >
+                    <option value="">Seleccionar</option>
+                    <option value="tornillo">Tornillo</option>
+                    <option value="piston">Piston</option>
+                  </select>
+                ) : (
+                  <p className="text-gray-800 font-semibold">
+                    {formData.compressorType || "N/A"}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-m font-medium text-blue-800 mb-1">
                   Marca
                 </label>
-                <p className="text-gray-800 font-semibold">
-                  {formData.brand || "N/A"}
-                </p>
+                {saveCompressorInfo ? (
+                  <input
+                    type="text"
+                    value={formData.brand || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        brand: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-blue-900 text-sm focus:outline-none focus:border-blue-700"
+                  />
+                ) : (
+                  <p className="text-gray-800 font-semibold">
+                    {formData.brand || "N/A"}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-m font-medium text-blue-800 mb-1">
                   Año
                 </label>
-                <p className="text-gray-800 font-semibold">
-                  {formData.yearManufactured || "N/A"}
-                </p>
+                {saveCompressorInfo ? (
+                  <input
+                    type="text"
+                    value={formData.yearManufactured || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        yearManufactured: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-blue-900 text-sm focus:outline-none focus:border-blue-700"
+                  />
+                ) : (
+                  <p className="text-gray-800 font-semibold">
+                    {formData.yearManufactured || "N/A"}
+                  </p>
+                )}
               </div>
             </div>
+            {saveCompressorInfo && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!formData.folio) return;
+                    try {
+                      // Update the orden so the data persists on reload
+                      const ordenRes = await fetch(
+                        `${URL_API}/ordenes/${formData.folio}`,
+                      );
+                      const ordenJson = await ordenRes.json();
+                      const ordenActual =
+                        ordenJson.data?.[0] || ordenJson.data || {};
+
+                      const updateRes = await fetch(
+                        `${URL_API}/ordenes/${formData.folio}`,
+                        {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            ...ordenActual,
+                            alias_compresor: formData.compressorAlias,
+                            numero_serie: formData.serialNumber,
+                            hp: formData.equipmentHp
+                              ? parseInt(formData.equipmentHp)
+                              : ordenActual.hp,
+                            tipo: formData.compressorType || ordenActual.tipo,
+                            marca: formData.brand || ordenActual.marca,
+                            anio: formData.yearManufactured
+                              ? parseInt(formData.yearManufactured)
+                              : ordenActual.anio,
+                          }),
+                        },
+                      );
+
+                      if (updateRes.ok) {
+                        setSaveCompressorInfo(false);
+                        alert("✅ Información del compresor guardada");
+                      } else {
+                        const err = await updateRes.json();
+                        alert(
+                          `❌ Error: ${err.detail || err.message || "No se pudo guardar"}`,
+                        );
+                      }
+                    } catch {
+                      alert("❌ Error de conexión al guardar el compresor");
+                    }
+                  }}
+                  className="px-5 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors"
+                >
+                  Guardar cambios del compresor
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Sección Orden de Servicio */}
@@ -4162,18 +4292,6 @@ function FillReport() {
                     <>💾 Guardar Borrador</>
                   )}
                 </button>
-                {!showPostMaintenanceSection ? (
-                  <button
-                    type="button"
-                    onClick={handleNextSection}
-                    disabled={savingPreMaintenance || isSaving}
-                    className="px-6 py-3 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {savingPreMaintenance || isSaving
-                      ? "Guardando..."
-                      : "Siguiente Sección →"}
-                  </button>
-                ) : (
                   <button
                     type="button"
                     onClick={async () => {
@@ -4283,7 +4401,6 @@ function FillReport() {
                   >
                     {isSaving ? "Guardando..." : "✍️ Enviar a Firma"}
                   </button>
-                )}
               </div>
             </div>
           </div>
