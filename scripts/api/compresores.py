@@ -30,7 +30,7 @@ def get_all_compresores():
             """SELECT c.id, c.hp, c.tipo, c.voltaje, c.marca, c.numero_serie,
                       c.anio, c.id_cliente, c.Amp_Load, c.Amp_No_Load,
                       c.proyecto, c.linea, c.LOAD_NO_LOAD, c.Alias, c.fecha_ultimo_mtto,
-                      cl.nombre_cliente
+                      cl.nombre_cliente, cl.numero_cliente 
                FROM compresores c
                LEFT JOIN clientes cl ON c.id_cliente = cl.id_cliente"""
         )
@@ -57,7 +57,8 @@ def get_all_compresores():
                 "LOAD_NO_LOAD": row[12],
                 "Alias": row[13],
                 "fecha_utlimo_mtto": row[14],  # mantiene el nombre que espera el frontend
-                "nombre_cliente": row[15]
+                "nombre_cliente": row[15],
+                "numero_cliente": row[16]
             }
             for row in res
         ]
