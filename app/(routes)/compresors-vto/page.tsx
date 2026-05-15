@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { URL_API } from "@/lib/global";
 import BackButton from "@/components/BackButton";
 
@@ -21,6 +21,7 @@ interface Compresor {
   Alias: string;
   fecha_utlimo_mtto: string | null;
   nombre_cliente: string | null;
+  numero_cliente: number | null;
 }
 
 interface Dispositivo {
@@ -753,59 +754,81 @@ const Compresors = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {compresores.map((compresor) => (
-                        <tr
-                          key={compresor.id}
-                          className="hover:bg-blue-50 transition-colors"
-                        >
-                          <td className="border border-gray-300 p-3 text-gray-700">
-                            {compresor.nombre_cliente &&
-                            !String(compresor.nombre_cliente).match(
-                              /^\d{4}-\d{2}-\d{2}/,
-                            )
-                              ? compresor.nombre_cliente
-                              : `ID: ${compresor.id_cliente}`}
-                          </td>
-                          <td className="border border-gray-300 p-3 font-medium text-gray-800">
-                            {compresor.Alias}
-                          </td>
-                          <td className="border border-gray-300 p-3 text-gray-700">
-                            {compresor.numero_serie}
-                          </td>
-                          <td className="border border-gray-300 p-3 text-gray-700">
-                            {compresor.tipo}
-                          </td>
-                          <td className="border border-gray-300 p-3 text-gray-700">
-                            {compresor.hp}
-                          </td>
-                          <td className="border border-gray-300 p-3 text-gray-700">
-                            {compresor.marca}
-                          </td>
-                          <td className="border border-gray-300 p-3 text-gray-700">
-                            {compresor.anio}
-                          </td>
-                          <td className="border border-gray-300 p-3 text-gray-700">
-                            {compresor.voltaje}V
-                          </td>
-                          <td className="border border-gray-300 p-3">
-                            <div className="flex gap-2 justify-center">
-                              <button
-                                onClick={() => handleOpenEditModal(compresor)}
-                                className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                                title="Editar"
-                              >
-                                ✏️ Editar
-                              </button>
-                              <button
-                                onClick={() => handleDelete(compresor.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                                title="Eliminar"
-                              >
-                                🗑️ Eliminar
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                      {Object.entries(
+                        compresores.reduce<Record<number, { nombre: string; items: Compresor[] }>>(
+                          (acc, c) => {
+                            const key = c.numero_cliente ?? c.id_cliente;
+                            if (!acc[key]) {
+                              acc[key] = {
+                                nombre: c.nombre_cliente || `Cliente #${key}`,
+                                items: [],
+                              };
+                            }
+                            acc[key].items.push(c);
+                            return acc;
+                          },
+                          {},
+                        ),
+                      ).map(([clientId, group]) => (
+                        <React.Fragment key={`group-${clientId}`}>
+                          <tr className="bg-blue-50">
+                            <td
+                              colSpan={9}
+                              className="border border-blue-200 px-4 py-2 font-bold text-blue-800 text-sm uppercase tracking-wide"
+                            >
+                              {group.nombre} — {group.items.length} compresor{group.items.length !== 1 ? "es" : ""}
+                            </td>
+                          </tr>
+                          {group.items.map((compresor) => (
+                            <tr
+                              key={compresor.id}
+                              className="hover:bg-blue-50 transition-colors"
+                            >
+                              <td className="border border-gray-300 p-3 text-gray-400 text-sm">
+                                {group.nombre}
+                              </td>
+                              <td className="border border-gray-300 p-3 font-medium text-gray-800">
+                                {compresor.Alias}
+                              </td>
+                              <td className="border border-gray-300 p-3 text-gray-700">
+                                {compresor.numero_serie}
+                              </td>
+                              <td className="border border-gray-300 p-3 text-gray-700">
+                                {compresor.tipo}
+                              </td>
+                              <td className="border border-gray-300 p-3 text-gray-700">
+                                {compresor.hp}
+                              </td>
+                              <td className="border border-gray-300 p-3 text-gray-700">
+                                {compresor.marca}
+                              </td>
+                              <td className="border border-gray-300 p-3 text-gray-700">
+                                {compresor.anio}
+                              </td>
+                              <td className="border border-gray-300 p-3 text-gray-700">
+                                {compresor.voltaje}V
+                              </td>
+                              <td className="border border-gray-300 p-3">
+                                <div className="flex gap-2 justify-center">
+                                  <button
+                                    onClick={() => handleOpenEditModal(compresor)}
+                                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                                    title="Editar"
+                                  >
+                                    ✏️ Editar
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(compresor.id)}
+                                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                                    title="Eliminar"
+                                  >
+                                    🗑️ Eliminar
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
