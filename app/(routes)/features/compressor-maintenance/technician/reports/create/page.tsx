@@ -1583,7 +1583,6 @@ function FillReport() {
     }
   };
 
-  // Función para generar diagnóstico automático
   const generateDiagnostico = () => {
     const positivos: string[] = [];
     const causas: string[] = [];
@@ -1598,95 +1597,98 @@ function FillReport() {
       }
     };
 
-    // Temperatura de compresión
     const tempComp = parseFloat(
       formData.compressionTempDisplay || formData.compressionTempLaser || "0",
     );
     if (tempComp >= 80 && tempComp <= 95) {
       positivos.push("Temperatura de compresión dentro de rango óptimo");
-    } else if (tempComp > 95 && tempComp <= 105) {
-      positivos.push(
-        "Temperatura de compresión aceptable para operación continua",
-      );
-    } else if (tempComp > 0) {
-      causas.push("Temperatura de compresión fuera de rango");
-      agregar_consecuencia("Riesgo de paro por alta temperatura", 3);
-      agregar_consecuencia("Degradación acelerada del aceite", 2);
-      acciones.push("Revisar enfriadores, ventilación y aceite");
+    } else if (tempComp > 95 && tempComp <= 100) {
+      positivos.push("Temperatura de compresión elevada pero aceptable para operación continua");
+    } else if (tempComp > 100) {
+      causas.push(`Temperatura de compresión excesiva (${tempComp}°C)`);
+      agregar_consecuencia("Riesgo inminente de paro por alta temperatura", 3);
+      agregar_consecuencia("Degradación acelerada del lubricante", 2);
+      acciones.push("Revisar enfriadores, ventilación, nivel de aceite y válvula termostática de urgencia");
+    } else if (tempComp > 0 && tempComp < 80) {
+      causas.push("Temperatura de compresión anormalmente baja");
+      agregar_consecuencia("Riesgo de condensación de agua en el circuito de aceite", 2);
+      acciones.push("Verificar funcionamiento de la válvula termostática");
     }
 
-    // Temperatura del separador
     const tempSep = parseFloat(formData.finalCompressionTemp || "0");
-    if (tempSep > 0 && tempSep <= 90) {
-      positivos.push("Temperatura del separador aire-aceite adecuada");
-    } else if (tempSep <= 95) {
-      positivos.push(
-        "Temperatura del separador cercana al límite, pero aceptable",
-      );
-    } else if (tempSep > 95) {
+    if (tempSep >= 75 && tempSep <= 95) {
+      positivos.push("Temperatura del separador aire-aceite en rango seguro");
+    } else if (tempSep > 95 && tempSep <= 100) {
+      positivos.push("Temperatura del separador elevada pero en límite operacional");
+    } else if (tempSep > 100) {
       causas.push("Separador aire-aceite sobrecalentado");
-      agregar_consecuencia("Arrastre de aceite a la red", 3);
-      acciones.push("Revisar estado del separador y retorno de aceite");
+      agregar_consecuencia("Arrastre excesivo de aceite a la red (carry-over)", 3);
+      agregar_consecuencia("Degradación del elemento filtrante", 2);
+      acciones.push("Revisar línea de retorno (scavenge line) y control de temperatura general");
+    } else if (tempSep > 0 && tempSep < 75) {
+      causas.push("Temperatura del separador por debajo del punto de rocío");
+      agregar_consecuencia("Saturación prematura del filtro por emulsión de agua", 2);
+      acciones.push("Revisar que la válvula térmica no esté pegada abierta");
     }
 
-    // Delta T enfriador de aceite
     const deltaT = parseFloat(formData.deltaTAceite || "0");
-    if (deltaT >= 15) {
-      positivos.push(
-        "Enfriador de aceite operando con buena eficiencia térmica",
-      );
-    } else if (deltaT >= 10 && deltaT < 15) {
+    if (deltaT >= 6 && deltaT <= 12) {
+      positivos.push("Enfriador de aceite operando con excelente eficiencia térmica y flujo óptimo");
+    } else if ((deltaT > 12 && deltaT <= 15) || (deltaT >= 4 && deltaT < 6)) {
       positivos.push("Enfriador de aceite con eficiencia térmica aceptable");
-    } else if (deltaT > 0) {
-      causas.push("Baja eficiencia del enfriador de aceite");
-      agregar_consecuencia("Alta temperatura interna del compresor", 2);
-      acciones.push("Limpiar enfriador y revisar ventilador");
+    } else if (deltaT > 15) {
+      causas.push("Delta T excesivo en el enfriador de aceite");
+      agregar_consecuencia("Restricción de flujo de aceite / Posible obstrucción interna", 2);
+      acciones.push("Verificar estado de filtros de aceite y funcionamiento del termostato");
+    } else if (deltaT > 0 && deltaT < 4) {
+      causas.push("Bajo Delta T en el enfriador (Baja transferencia)");
+      agregar_consecuencia("Alta temperatura de inyección al tornillo", 2);
+      acciones.push("Limpiar externamente el radiador (polvo/aceite) y verificar ventilador");
     }
 
-    // Diferencial de presión del separador
     const deltaP = parseFloat(formData.deltaPSeparador || "0");
-    if (deltaP > 0 && deltaP <= 0.2) {
-      positivos.push("Separador aire-aceite en condición óptima");
-    } else if (deltaP <= 0.7) {
-      positivos.push("Separador aire-aceite en condición aceptable");
-    } else if (deltaP > 0.7) {
-      causas.push("Separador aire-aceite saturado");
-      agregar_consecuencia("Incremento en consumo eléctrico", 1);
-      agregar_consecuencia("Sobrecarga térmica del compresor", 2);
-      acciones.push("Reemplazar separador aire-aceite");
+    if (deltaP > 0 && deltaP <= 0.25) {
+      positivos.push("Separador aire-aceite en condición óptima (Baja restricción)");
+    } else if (deltaP <= 0.6) {
+      positivos.push("Separador aire-aceite en condición aceptable de trabajo");
+    } else if (deltaP > 0.6) {
+      causas.push(`Separador aire-aceite con alta restricción (${deltaP} bar)`);
+      agregar_consecuencia("Incremento en el consumo eléctrico del motor (Caída de presión)", 2);
+      agregar_consecuencia("Reducción del caudal de aire libre entregado (FAD)", 2);
+      if (deltaP >= 0.8) {
+        agregar_consecuencia("Riesgo de colapso físico del elemento separador", 3);
+      }
+      acciones.push("Programar reemplazo inmediato del elemento separador aire-aceite");
     }
 
-    // Temperatura del motor
     const tempMotor = parseFloat(formData.tempMotor || "0");
-    if (tempMotor > 0 && tempMotor <= 85) {
-      positivos.push("Temperatura del motor eléctrico dentro de rango normal");
-    } else if (tempMotor <= 90) {
-      positivos.push("Temperatura del motor elevada pero aceptable");
-    } else if (tempMotor > 90) {
-      causas.push("Sobrecalentamiento del motor eléctrico");
-      agregar_consecuencia("Disparo de protecciones térmicas", 3);
-      agregar_consecuencia("Reducción de vida útil del motor", 2);
-      acciones.push("Revisar amperajes, voltaje y presión");
+    if (tempMotor > 0 && tempMotor <= 70) {
+      positivos.push("Temperatura de carcasa del motor dentro de rango normal");
+    } else if (tempMotor <= 82) {
+      positivos.push("Temperatura de motor elevada (Monitorear carga y ventilación)");
+    } else if (tempMotor > 82) {
+      causas.push("Sobrecalentamiento en el motor eléctrico");
+      agregar_consecuencia("Riesgo de disparo de protecciones térmicas", 3);
+      agregar_consecuencia("Degradación crítica del aislamiento de devanados (Clase F/H)", 3);
+      acciones.push("Medir amperaje por fase, verificar voltaje y limpiar rejillas de ventilación del motor");
     }
 
-    // Condiciones ambientales
     const polvo = formData.highDustOperation === "Sí";
     const ventDeficiente = formData.hotAirExpulsion === "Interno al cuarto";
     if (!polvo && !ventDeficiente) {
-      positivos.push("Condiciones ambientales y ventilación adecuadas");
+      positivos.push("Condiciones ambientales y ventilación del cuarto adecuadas");
     } else {
-      causas.push("Condiciones ambientales desfavorables");
-      agregar_consecuencia("Ensuciamiento acelerado de enfriadores", 1);
-      acciones.push("Mejorar limpieza y ventilación del cuarto");
+      causas.push("Condiciones ambientales desfavorables en la sala de compresores");
+      agregar_consecuencia("Saturación acelerada de filtros de aire y radiadores", 2);
+      acciones.push("Mejorar la extracción del aire caliente hacia el exterior y aumentar frecuencia de limpieza");
     }
 
-    // Condición del aceite
     if (formData.aceiteOscuro === "No") {
       positivos.push("Aceite en buen estado visual");
     } else if (formData.aceiteOscuro === "Sí") {
-      causas.push("Aceite degradado");
-      agregar_consecuencia("Lubricación deficiente del tornillo", 3);
-      acciones.push("Cambio de aceite y revisión térmica");
+      causas.push("Aceite con signos severos de degradación/oxidación");
+      agregar_consecuencia("Pérdida de propiedades viscosas y protección del tornillo", 3);
+      acciones.push("Realizar cambio de aceite y filtro de aceite de inmediato");
     }
 
     const gravedadGlobal = Math.max(...Object.values(consecuencias), 0);
