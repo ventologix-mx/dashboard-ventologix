@@ -9,32 +9,35 @@ import { ChevronLeft, Plus, Edit2, Trash2, User } from "lucide-react";
 interface TeamMember {
   id: number;
   nombre: string;
-  puesto: string;
   correo: string;
   telefono: string;
-  tecnico: number;
   rol: number;
 }
 
 interface FormData {
   nombre: string;
-  puesto: string;
   correo: string;
   telefono: string;
-  tecnico: number;
   rol: number;
 }
 
 const ROLE_LABELS: { [key: number]: string } = {
-  0: "SuperADMIN",
-  1: "Ingeniero",
-  2: "Ventologix Air Technician Specialist",
+  0: "SuperAdmin",
+  1: "Técnico Supervisor",
+  2: "Técnico",
 };
 
 const ROLE_COLORS: { [key: number]: string } = {
   0: "bg-red-100 text-red-800",
   1: "bg-blue-100 text-blue-800",
   2: "bg-purple-100 text-purple-800",
+};
+
+const EMPTY_FORM: FormData = {
+  nombre: "",
+  correo: "",
+  telefono: "",
+  rol: 2,
 };
 
 const VentologixTeamPage = () => {
@@ -48,16 +51,8 @@ const VentologixTeamPage = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [formData, setFormData] = useState<FormData>({
-    nombre: "",
-    puesto: "",
-    correo: "",
-    telefono: "",
-    tecnico: 0,
-    rol: 3,
-  });
+  const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
 
-  // Load user role on mount and check authorization
   useEffect(() => {
     const userData = sessionStorage.getItem("userData");
     if (userData) {
@@ -65,13 +60,7 @@ const VentologixTeamPage = () => {
         const parsedData = JSON.parse(userData);
         const userRole = parsedData.rol;
         setRol(userRole);
-
-        // Only allow ROL 0 (Administrador)
-        if (userRole == 0) {
-          setIsAuthorized(true);
-        } else {
-          setIsAuthorized(false);
-        }
+        setIsAuthorized(userRole == 0);
       } catch (error) {
         console.error("Error parsing userData:", error);
         router.push("/home");
@@ -82,24 +71,17 @@ const VentologixTeamPage = () => {
     setIsLoading(false);
   }, [router]);
 
-  // Fetch team members
   const fetchTeamMembers = async () => {
     try {
       const response = await fetch(`${URL_API}/ventologix/team`);
       const data = await response.json();
-
-      if (data.data) {
-        setMembers(data.data);
-      } else {
-        setMembers([]);
-      }
+      setMembers(data.data ?? []);
     } catch (error) {
       console.error("Error fetching team members:", error);
       showError("Error", "No se pudieron cargar los miembros del equipo");
     }
   };
 
-  // Load team members on mount
   useEffect(() => {
     if (isAuthorized) {
       fetchTeamMembers();
@@ -107,7 +89,6 @@ const VentologixTeamPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized]);
 
-  // Handle form input changes
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
@@ -118,92 +99,48 @@ const VentologixTeamPage = () => {
     }));
   };
 
-  // Handle checkbox for tecnico
-  const handleTecnicoChange = () => {
-    setFormData((prev) => ({
-      ...prev,
-      tecnico: prev.tecnico === 1 ? 0 : 1,
-    }));
-  };
-
-  // Submit create or update
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
-    if (
-      !formData.nombre.trim() ||
-      !formData.correo.trim() ||
-      !formData.puesto.trim()
-    ) {
+    if (!formData.nombre.trim() || !formData.correo.trim()) {
       showError("Validación", "Por favor completa los campos requeridos");
       return;
     }
 
     try {
       if (editingMember) {
-        // Update existing member
         const response = await fetch(
           `${URL_API}/ventologix/team/${editingMember.id}`,
           {
             method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(formData),
           },
         );
-
         const result = await response.json();
-
         if (response.ok) {
           showSuccess("Éxito", "Miembro actualizado correctamente");
           setShowEditModal(false);
           setEditingMember(null);
-          setFormData({
-            nombre: "",
-            puesto: "",
-            correo: "",
-            telefono: "",
-            tecnico: 0,
-            rol: 3,
-          });
+          setFormData(EMPTY_FORM);
           fetchTeamMembers();
         } else {
-          showError(
-            "Error",
-            result.detail || result.message || "Error al actualizar",
-          );
+          showError("Error", result.detail || result.message || "Error al actualizar");
         }
       } else {
-        // Create new member
         const response = await fetch(`${URL_API}/ventologix/team`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
         });
-
         const result = await response.json();
-
         if (response.ok) {
           showSuccess("Éxito", "Miembro creado correctamente");
           setShowForm(false);
-          setFormData({
-            nombre: "",
-            puesto: "",
-            correo: "",
-            telefono: "",
-            tecnico: 0,
-            rol: 3,
-          });
+          setFormData(EMPTY_FORM);
           fetchTeamMembers();
         } else {
-          showError(
-            "Error",
-            result.detail || result.message || "Error al crear",
-          );
+          showError("Error", result.detail || result.message || "Error al crear");
         }
       }
     } catch (error) {
@@ -212,41 +149,30 @@ const VentologixTeamPage = () => {
     }
   };
 
-  // Handle edit
   const handleEdit = (member: TeamMember) => {
     setEditingMember(member);
     setFormData({
       nombre: member.nombre,
-      puesto: member.puesto,
       correo: member.correo,
       telefono: member.telefono,
-      tecnico: member.tecnico,
       rol: member.rol,
     });
     setShowEditModal(true);
   };
 
-  // Handle delete
   const handleDelete = async (id: number) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar este miembro?")) {
-      return;
-    }
+    if (!confirm("¿Estás seguro de que deseas eliminar este miembro?")) return;
 
     try {
       const response = await fetch(`${URL_API}/ventologix/team/${id}`, {
         method: "DELETE",
       });
-
       const result = await response.json();
-
       if (response.ok) {
         showSuccess("Éxito", "Miembro eliminado correctamente");
         fetchTeamMembers();
       } else {
-        showError(
-          "Error",
-          result.detail || result.message || "Error al eliminar",
-        );
+        showError("Error", result.detail || result.message || "Error al eliminar");
       }
     } catch (error) {
       console.error("Error deleting member:", error);
@@ -254,12 +180,10 @@ const VentologixTeamPage = () => {
     }
   };
 
-  // Filter members based on search
   const filteredMembers = members.filter((member) =>
     member.nombre.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Handle go back
   const handleGoBack = () => {
     if (window.history.length > 1) {
       router.back();
@@ -268,9 +192,21 @@ const VentologixTeamPage = () => {
     }
   };
 
+  const RolSelect = () => (
+    <select
+      name="rol"
+      value={formData.rol}
+      onChange={handleInputChange}
+      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-800"
+    >
+      <option value={0}>SuperAdmin</option>
+      <option value={1}>Técnico Supervisor</option>
+      <option value={2}>Técnico</option>
+    </select>
+  );
+
   return (
     <div className="min-h-screen p-8 bg-white">
-      {/* Loading Screen */}
       {isLoading && (
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
@@ -280,7 +216,6 @@ const VentologixTeamPage = () => {
         </div>
       )}
 
-      {/* Unauthorized Screen */}
       {!isLoading && !isAuthorized && (
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
@@ -300,10 +235,8 @@ const VentologixTeamPage = () => {
         </div>
       )}
 
-      {/* Main Content */}
       {!isLoading && isAuthorized && (
         <div className="max-w-7xl mx-auto">
-          {/* Back Button */}
           <button
             onClick={handleGoBack}
             className="flex items-center gap-2 text-blue-800 hover:text-blue-900 transition-colors mb-6"
@@ -313,7 +246,6 @@ const VentologixTeamPage = () => {
             <span>Atrás</span>
           </button>
 
-          {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
               <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-3">
@@ -328,14 +260,7 @@ const VentologixTeamPage = () => {
               <button
                 onClick={() => {
                   setEditingMember(null);
-                  setFormData({
-                    nombre: "",
-                    puesto: "",
-                    correo: "",
-                    telefono: "",
-                    tecnico: 0,
-                    rol: 3,
-                  });
+                  setFormData(EMPTY_FORM);
                   setShowForm(true);
                 }}
                 className="flex items-center gap-2 bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-900 transition-colors"
@@ -346,7 +271,6 @@ const VentologixTeamPage = () => {
             )}
           </div>
 
-          {/* Search Bar */}
           <div className="mb-6">
             <input
               type="text"
@@ -357,7 +281,6 @@ const VentologixTeamPage = () => {
             />
           </div>
 
-          {/* Create Form */}
           {showForm && (
             <div className="bg-gray-50 p-6 rounded-lg mb-8 border border-gray-200">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
@@ -373,19 +296,6 @@ const VentologixTeamPage = () => {
                       type="text"
                       name="nombre"
                       value={formData.nombre}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-800"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Puesto *
-                    </label>
-                    <input
-                      type="text"
-                      name="puesto"
-                      value={formData.puesto}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-800"
                       required
@@ -420,31 +330,7 @@ const VentologixTeamPage = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Rol *
                     </label>
-                    <select
-                      name="rol"
-                      value={formData.rol}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-800"
-                    >
-                      <option value={0}>Administrador</option>
-                      <option value={1}>Ingeniero</option>
-                      <option value={2}>Técnico Supervisor</option>
-                      <option value={3}>Técnico</option>
-                      <option value={4}>Visualización</option>
-                    </select>
-                  </div>
-                  <div className="flex items-end">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.tecnico === 1}
-                        onChange={handleTecnicoChange}
-                        className="w-4 h-4 accent-blue-800"
-                      />
-                      <span className="text-sm font-medium text-gray-700">
-                        ¿Es Técnico?
-                      </span>
-                    </label>
+                    <RolSelect />
                   </div>
                 </div>
 
@@ -459,14 +345,7 @@ const VentologixTeamPage = () => {
                     type="button"
                     onClick={() => {
                       setShowForm(false);
-                      setFormData({
-                        nombre: "",
-                        puesto: "",
-                        correo: "",
-                        telefono: "",
-                        tecnico: 0,
-                        rol: 3,
-                      });
+                      setFormData(EMPTY_FORM);
                     }}
                     className="bg-gray-300 text-gray-800 px-6 py-2 rounded hover:bg-gray-400 transition-colors"
                   >
@@ -477,7 +356,6 @@ const VentologixTeamPage = () => {
             </div>
           )}
 
-          {/* Members Table */}
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             {filteredMembers.length > 0 ? (
               <div className="overflow-x-auto">
@@ -488,9 +366,6 @@ const VentologixTeamPage = () => {
                         Nombre
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
-                        Puesto
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
                         Correo
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
@@ -498,9 +373,6 @@ const VentologixTeamPage = () => {
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
                         Rol
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
-                        Técnico
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-800">
                         Acciones
@@ -517,9 +389,6 @@ const VentologixTeamPage = () => {
                           {member.nombre}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
-                          {member.puesto}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
                           {member.correo}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
@@ -528,22 +397,11 @@ const VentologixTeamPage = () => {
                         <td className="px-6 py-4 text-sm">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              ROLE_COLORS[member.rol] || ROLE_COLORS[4]
+                              ROLE_COLORS[member.rol] ?? "bg-gray-100 text-gray-800"
                             }`}
                           >
-                            {ROLE_LABELS[member.rol] || "Desconocido"}
+                            {ROLE_LABELS[member.rol] ?? "Desconocido"}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {member.tecnico === 1 ? (
-                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">
-                              Sí
-                            </span>
-                          ) : (
-                            <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded text-xs font-semibold">
-                              No
-                            </span>
-                          )}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <div className="flex gap-2">
@@ -579,7 +437,6 @@ const VentologixTeamPage = () => {
             )}
           </div>
 
-          {/* Edit Modal */}
           {showEditModal && editingMember && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -598,19 +455,6 @@ const VentologixTeamPage = () => {
                       type="text"
                       name="nombre"
                       value={formData.nombre}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-800"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Puesto *
-                    </label>
-                    <input
-                      type="text"
-                      name="puesto"
-                      value={formData.puesto}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-800"
                       required
@@ -645,31 +489,7 @@ const VentologixTeamPage = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Rol *
                     </label>
-                    <select
-                      name="rol"
-                      value={formData.rol}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-800"
-                    >
-                      <option value={0}>Administrador</option>
-                      <option value={1}>Ingeniero</option>
-                      <option value={2}>Técnico Supervisor</option>
-                      <option value={3}>Técnico</option>
-                      <option value={4}>Visualización</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.tecnico === 1}
-                        onChange={handleTecnicoChange}
-                        className="w-4 h-4 accent-blue-800"
-                      />
-                      <span className="text-sm font-medium text-gray-700">
-                        ¿Es Técnico?
-                      </span>
-                    </label>
+                    <RolSelect />
                   </div>
 
                   <div className="flex gap-3 pt-4 border-t border-gray-200">
@@ -684,14 +504,7 @@ const VentologixTeamPage = () => {
                       onClick={() => {
                         setShowEditModal(false);
                         setEditingMember(null);
-                        setFormData({
-                          nombre: "",
-                          puesto: "",
-                          correo: "",
-                          telefono: "",
-                          tecnico: 0,
-                          rol: 3,
-                        });
+                        setFormData(EMPTY_FORM);
                       }}
                       className="flex-1 bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 transition-colors"
                     >
