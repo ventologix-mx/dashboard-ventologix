@@ -19,25 +19,28 @@ DB_DATABASE = os.getenv("DB_DATABASE")
 ventologix = APIRouter(prefix="/ventologix", tags=["🏢 Ventologix"])
 
 
+ROL_LABELS = {
+    0: "SuperAdmin",
+    1: "Técnico Supervisor",
+    2: "Técnico",
+}
+
+
 class TeamMember(BaseModel):
     """Modelo para miembros del equipo Ventologix"""
     id: int = None
     nombre: str
-    puesto: str
     correo: EmailStr
     telefono: str = None
-    tecnico: int = 0  # 0 o 1
-    rol: int  # 0: SuperADMIN, 1: Ingeniero, 2: Técnico Supervisor, 3: Técnico, 4: Visualización
+    rol: int  # 0: SuperAdmin, 1: Técnico Supervisor, 2: Técnico
 
 
 class TeamMemberResponse(BaseModel):
     """Respuesta con datos del miembro del equipo"""
     id: int
     nombre: str
-    puesto: str
     correo: str
     telefono: str = None
-    tecnico: int
     rol: int
 
 
@@ -49,7 +52,7 @@ def get_team_members():
         cursor = conn.cursor(dictionary=True)
 
         cursor.execute("""
-            SELECT v.id, v.nombre, v.puesto, v.correo, v.telefono, v.tecnico, ua.rol
+            SELECT v.id, v.nombre, v.correo, v.telefono, ua.rol
             FROM ventologix v
             JOIN usuarios_auth ua ON ua.email = v.correo
             ORDER BY nombre ASC
@@ -78,7 +81,7 @@ def get_team_member(team_id: int):
         cursor = conn.cursor(dictionary=True)
 
         cursor.execute("""
-            SELECT v.id, v.nombre, v.puesto, v.correo, v.telefono, v.tecnico, ua.rol
+            SELECT v.id, v.nombre, v.correo, v.telefono, ua.rol
             FROM ventologix v
             JOIN usuarios_auth ua ON ua.email = v.correo
             WHERE v.id = %s
@@ -117,21 +120,24 @@ def create_team_member(member: TeamMember):
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="El email ya está registrado")
 
+        puesto = ROL_LABELS.get(member.rol, "")
+        tecnico = 1 if member.rol == 2 else 0
+
         # Insertar nuevo miembro en ventologix
         cursor.execute("""
             INSERT INTO ventologix (nombre, puesto, correo, telefono, tecnico)
             VALUES (%s, %s, %s, %s, %s)
-        """, (member.nombre, member.puesto, member.correo, member.telefono or "", member.tecnico))
+        """, (member.nombre, puesto, member.correo, member.telefono or "", tecnico))
 
         member_id = cursor.lastrowid
-        
+
         # Insertar/actualizar en usuarios_auth
         cursor.execute("""
-            INSERT INTO usuarios_auth (email, rol, name)
-            VALUES (%s, %s, %s)
+            INSERT INTO usuarios_auth (email, numeroCliente, rol, name)
+            VALUES (%s, NULL, %s, %s)
             ON DUPLICATE KEY UPDATE rol = VALUES(rol), name = VALUES(name)
         """, (member.correo, member.rol, member.nombre))
-        
+
         conn.commit()
         cursor.close()
         conn.close()
@@ -141,10 +147,8 @@ def create_team_member(member: TeamMember):
             "data": {
                 "id": member_id,
                 "nombre": member.nombre,
-                "puesto": member.puesto,
                 "correo": member.correo,
                 "telefono": member.telefono,
-                "tecnico": member.tecnico,
                 "rol": member.rol
             }
         }
@@ -182,12 +186,15 @@ def update_team_member(team_id: int, member: TeamMember):
             if cursor.fetchone():
                 raise HTTPException(status_code=400, detail="El email ya está registrado")
 
+        puesto = ROL_LABELS.get(member.rol, "")
+        tecnico = 1 if member.rol == 2 else 0
+
         # Actualizar miembro en ventologix
         cursor.execute("""
             UPDATE ventologix
             SET nombre = %s, puesto = %s, correo = %s, telefono = %s, tecnico = %s
             WHERE id = %s
-        """, (member.nombre, member.puesto, member.correo, member.telefono or "", member.tecnico, team_id))
+        """, (member.nombre, puesto, member.correo, member.telefono or "", tecnico, team_id))
 
         # Si cambió el email, actualizar en usuarios_auth
         if old_email != member.correo:
@@ -199,8 +206,8 @@ def update_team_member(team_id: int, member: TeamMember):
         
         # Insertar/actualizar en usuarios_auth con el nuevo email y rol
         cursor.execute("""
-            INSERT INTO usuarios_auth (email, rol, name)
-            VALUES (%s, %s, %s)
+            INSERT INTO usuarios_auth (email, numeroCliente, rol, name)
+            VALUES (%s, NULL, %s, %s)
             ON DUPLICATE KEY UPDATE rol = VALUES(rol), name = VALUES(name)
         """, (member.correo, member.rol, member.nombre))
 
@@ -213,10 +220,8 @@ def update_team_member(team_id: int, member: TeamMember):
             "data": {
                 "id": team_id,
                 "nombre": member.nombre,
-                "puesto": member.puesto,
                 "correo": member.correo,
                 "telefono": member.telefono,
-                "tecnico": member.tecnico,
                 "rol": member.rol
             }
         }
